@@ -1,2 +1,4 @@
 *.cmake
 *.code-workspace
+tmp
+.DS_Store
