@@ -3,6 +3,8 @@ import onewire
 import ds18x20
 import time
 import binascii
+import os
+
 
 async def setTime(loop=0):
     #ntptime.settime() failure: [Errno 110] ETIMEDOUT
@@ -52,7 +54,21 @@ async def setTime(loop=0):
 
 setTime()
 
-test_file = open("test.csv","w")
+def file_exists(file_path):
+    directory = '/' if '/' not in file_path else file_path.rsplit('/', 1)[0]
+    files = os.listdir(directory)
+    file_name = file_path.split('/')[-1]
+    return file_name in files
+
+# Example usage
+def openFile(count=1):
+    file_path = f"test-{count}.csv"
+    if file_exists(file_path):
+        return openFile(count+1)
+    else:
+        return open(file_path, "w")
+
+test_file = openFile()
 
 def cToF(c):
     return (c*(9/5)) + 32
@@ -89,7 +105,8 @@ print('Number of sensors: ', number_devices)
 while True:
     ds18b20_sensor.convert_temp()
     time.sleep_ms(750)
-    newLine = [str(time.localtime())]
+    now = time.localtime()
+    newLine = ["{}-{}-{}T{}:{}:{}".format(now[0],now[1],now[2],now[3],now[4],now[5])]
     for device in sensors:
         name = getSensorName(device)
         c_raw = ds18b20_sensor.read_temp(device)
@@ -102,6 +119,7 @@ while True:
     test_file.write(','.join(newLine)+'\n')
     test_file.flush()
     time.sleep(60)
+
 
 
 
