@@ -6,6 +6,43 @@ import binascii
 import os
 
 
+def iso_timestamp(t):
+    timestamp = "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(
+        t[0], t[1], t[2], t[4], t[5], t[6]
+    )
+    return timestamp
+
+def set_time_from_iso(iso_string):
+    try:
+        # Split date and time parts (separated by 'T' or space)
+        if 'T' in iso_string:
+            date_part, time_part = iso_string.split('T')
+        else:
+            date_part, time_part = iso_string.split(' ')
+            
+        # Parse date components
+        year, month, day = [int(x) for x in date_part.split('-')]
+        
+        # Parse time components
+        time_components = time_part.split(':')
+        hour = int(time_components[0])
+        minute = int(time_components[1])
+        second = int(time_components[2])
+        
+        # Set RTC
+        rtc = machine.RTC()
+        # weekday=0 (Monday), subseconds=0
+        rtc.datetime((year, month, day, 0, hour, minute, second, 0))
+        return True
+        
+    except Exception as e:
+        print("Error setting time:", str(e))
+        return False
+
+# TEMP Hack to adjust the starting time when the device is fully offline
+set_time_from_iso("2025-09-21T10:0:00")
+
+# TODO: Need to move this function out of this file, but more work is needed once we bring in wifi
 async def setTime(loop=0):
     #ntptime.settime() failure: [Errno 110] ETIMEDOUT
     #ntptime.settime() failure: overflow converting long int to machine word
@@ -106,7 +143,7 @@ while True:
     ds18b20_sensor.convert_temp()
     time.sleep_ms(750)
     now = time.localtime()
-    newLine = ["{}-{}-{}T{}:{}:{}".format(now[0],now[1],now[2],now[3],now[4],now[5])]
+    newLine = [iso_timestamp(now)]
     for device in sensors:
         name = getSensorName(device)
         c_raw = ds18b20_sensor.read_temp(device)
@@ -118,8 +155,4 @@ while True:
 
     test_file.write(','.join(newLine)+'\n')
     test_file.flush()
-    time.sleep(60)
-
-
-
-
+    time.sleep(60*15)
