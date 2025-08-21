@@ -5,6 +5,8 @@ import time
 import binascii
 import os
 
+# Set RTC
+rtc = machine.RTC()
 
 def iso_timestamp(t):
     timestamp = "{:04d}-{:02d}-{:02d}T{:02d}:{:02d}:{:02d}".format(
@@ -29,8 +31,6 @@ def set_time_from_iso(iso_string):
         minute = int(time_components[1])
         second = int(time_components[2])
         
-        # Set RTC
-        rtc = machine.RTC()
         # weekday=0 (Monday), subseconds=0
         rtc.datetime((year, month, day, 0, hour, minute, second, 0))
         return True
@@ -40,7 +40,9 @@ def set_time_from_iso(iso_string):
         return False
 
 # TEMP Hack to adjust the starting time when the device is fully offline
-set_time_from_iso("2025-09-21T10:0:00")
+set_time_from_iso("2025-09-10T10:00:00")
+default_now = rtc.datetime()
+print(iso_timestamp(default_now))
 
 # TODO: Need to move this function out of this file, but more work is needed once we bring in wifi
 async def setTime(loop=0):
@@ -142,7 +144,7 @@ print('Number of sensors: ', number_devices)
 while True:
     ds18b20_sensor.convert_temp()
     time.sleep_ms(750)
-    now = time.localtime()
+    now = rtc.datetime()
     newLine = [iso_timestamp(now)]
     for device in sensors:
         name = getSensorName(device)
@@ -156,3 +158,4 @@ while True:
     test_file.write(','.join(newLine)+'\n')
     test_file.flush()
     time.sleep(60*15)
+
