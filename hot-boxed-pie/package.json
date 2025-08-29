@@ -1,0 +1,18 @@
+{
+  "name": "hot-boxed-pie",
+  "version": "1.0.0",
+  "description": "NodeJS server to receive tempature data from various sensors",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.6",
+    "sqlite": "^5.0.1"
+  },
+  "author": "Gerald Leenerts",
+  "license": "ISC"
+}
