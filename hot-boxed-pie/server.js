@@ -5,13 +5,25 @@ import {
   initializeBoxDatabase,
   openBoxDb,
 } from "./database.js";
+import { fileURLToPath } from "url";
 import path from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = 3000;
 
 // Middleware to parse JSON bodies
 app.use(express.json());
+
+// Serve static files from the client directory
+app.use(express.static(path.join(__dirname, "client")));
+
+// Serve index.html for the root route
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "client", "index.html"));
+});
 
 // Initialize database
 await initializeDatabase();
@@ -160,11 +172,11 @@ app.get("/api/box/:id/measurements", async (req, res) => {
       return res.status(404).json({ error: "Box not found" });
     }
 
-    // Query parameters for filtering
-    const limit = parseInt(req.query.limit) || 100; // Default to 100 records
+    // Query parameters
+    const limit = parseInt(req.query.limit) || 100;
     const offset = parseInt(req.query.offset) || 0;
-    const startDate = req.query.start_date; // Format: YYYY-MM-DD
-    const endDate = req.query.end_date; // Format: YYYY-MM-DD
+    const startTime = req.query.start_time;
+    const endTime = req.query.end_time;
 
     // Open the box's specific database
     const boxDb = await openBoxDb(req.params.id);
@@ -172,16 +184,16 @@ app.get("/api/box/:id/measurements", async (req, res) => {
     let query = "SELECT * FROM measurements";
     let queryParams = [];
 
-    // Add date range filters if provided
-    if (startDate || endDate) {
+    // Add time range filters if provided
+    if (startTime || endTime) {
       const conditions = [];
-      if (startDate) {
+      if (startTime) {
         conditions.push("timestamp >= ?");
-        queryParams.push(startDate);
+        queryParams.push(startTime);
       }
-      if (endDate) {
-        conditions.push("timestamp < ?");
-        queryParams.push(endDate + " 23:59:59"); // Include the entire end date
+      if (endTime) {
+        conditions.push("timestamp <= ?");
+        queryParams.push(endTime);
       }
       if (conditions.length > 0) {
         query += " WHERE " + conditions.join(" AND ");
