@@ -1,9 +1,9 @@
 import express from "express";
 import {
-  openDb,
   initializeDatabase,
   initializeBoxDatabase,
   openBoxDb,
+  openCommonDb,
 } from "./database.js";
 import { fileURLToPath } from "url";
 import path from "path";
@@ -31,7 +31,7 @@ await initializeDatabase();
 // GET all boxes
 app.get("/api/box", async (req, res) => {
   try {
-    const db = await openDb();
+    const db = await openCommonDb();
     const boxes = await db.all("SELECT * FROM boxes");
     res.json(
       boxes.map((box) => ({
@@ -49,7 +49,7 @@ app.get("/api/box", async (req, res) => {
 // GET a specific box by ID
 app.get("/api/box/:id", async (req, res) => {
   try {
-    const db = await openDb();
+    const db = await openCommonDb();
     const box = await db.get("SELECT * FROM boxes WHERE id = ?", req.params.id);
 
     if (!box) {
@@ -70,7 +70,7 @@ app.get("/api/box/:id", async (req, res) => {
 // POST a new box
 app.post("/api/box", async (req, res) => {
   try {
-    const mainDb = await openDb();
+    const mainDb = await openCommonDb();
     const id = Date.now().toString();
     const database_path = path.join("databases", `${id}.sqlite`);
     const data = JSON.stringify(req.body);
@@ -98,7 +98,7 @@ app.post("/api/box", async (req, res) => {
 // PUT (update) a box
 app.put("/api/box/:id", async (req, res) => {
   try {
-    const db = await openDb();
+    const db = await openCommonDb();
     const data = JSON.stringify(req.body);
 
     const result = await db.run("UPDATE boxes SET data = ? WHERE id = ?", [
@@ -129,7 +129,7 @@ app.put("/api/box/:id", async (req, res) => {
 // DELETE a box
 app.delete("/api/box/:id", async (req, res) => {
   try {
-    const db = await openDb();
+    const db = await openCommonDb();
     const box = await db.get("SELECT * FROM boxes WHERE id = ?", req.params.id);
 
     if (!box) {
@@ -163,7 +163,7 @@ app.listen(port, () => {
 // Get sensors for a box
 app.get("/api/box/:id/sensors", async (req, res) => {
   try {
-    const mainDb = await openDb();
+    const mainDb = await openCommonDb();
     const box = await mainDb.get(
       "SELECT * FROM boxes WHERE id = ?",
       req.params.id,
@@ -186,7 +186,7 @@ app.get("/api/box/:id/sensors", async (req, res) => {
 // Add a sensor to a box
 app.post("/api/box/:id/sensors", async (req, res) => {
   try {
-    const mainDb = await openDb();
+    const mainDb = await openCommonDb();
     const box = await mainDb.get(
       "SELECT * FROM boxes WHERE id = ?",
       req.params.id,
@@ -196,7 +196,7 @@ app.post("/api/box/:id/sensors", async (req, res) => {
       return res.status(404).json({ error: "Box not found" });
     }
 
-    const { name } = req.body;
+    const { name, type, location } = req.body;
     if (!name) {
       return res.status(400).json({ error: "Sensor name is required" });
     }
@@ -204,10 +204,10 @@ app.post("/api/box/:id/sensors", async (req, res) => {
     const boxDb = await openBoxDb(req.params.id);
     const sensorId = Date.now().toString();
 
-    await boxDb.run("INSERT INTO sensors (id, name) VALUES (?, ?)", [
-      sensorId,
-      name,
-    ]);
+    await boxDb.run(
+      "INSERT INTO sensors (id, name, type, location) VALUES (?, ?, ?, ?)",
+      [sensorId, name, type || null, location || null],
+    );
 
     const sensor = await boxDb.get(
       "SELECT * FROM sensors WHERE id = ?",
@@ -220,10 +220,54 @@ app.post("/api/box/:id/sensors", async (req, res) => {
   }
 });
 
+// Update a sensor
+app.put("/api/box/:boxId/sensors/:sensorId", async (req, res) => {
+  try {
+    const { boxId, sensorId } = req.params;
+    const { name, type, location } = req.body;
+
+    const mainDb = await openCommonDb();
+    const box = await mainDb.get("SELECT * FROM boxes WHERE id = ?", boxId);
+
+    if (!box) {
+      return res.status(404).json({ error: "Box not found" });
+    }
+
+    const boxDb = await openBoxDb(boxId);
+    const sensor = await boxDb.get(
+      "SELECT * FROM sensors WHERE id = ?",
+      sensorId,
+    );
+
+    if (!sensor) {
+      return res.status(404).json({ error: "Sensor not found" });
+    }
+
+    await boxDb.run(
+      "UPDATE sensors SET name = ?, type = ?, location = ? WHERE id = ?",
+      [
+        name || sensor.name,
+        type !== undefined ? type : sensor.type,
+        location !== undefined ? location : sensor.location,
+        sensorId,
+      ],
+    );
+
+    const updatedSensor = await boxDb.get(
+      "SELECT * FROM sensors WHERE id = ?",
+      sensorId,
+    );
+    res.json(updatedSensor);
+  } catch (error) {
+    console.error("Error updating sensor:", error);
+    res.status(500).json({ error: "Failed to update sensor" });
+  }
+});
+
 // Update measurements endpoint to handle sensors
 app.get("/api/box/:id/measurements", async (req, res) => {
   try {
-    const mainDb = await openDb();
+    const mainDb = await openCommonDb();
     const box = await mainDb.get(
       "SELECT * FROM boxes WHERE id = ?",
       req.params.id,
@@ -293,7 +337,7 @@ app.get("/api/box/:id/measurements", async (req, res) => {
 // Update POST measurements endpoint to require sensor_id
 app.post("/api/box/:id/measurements", async (req, res) => {
   try {
-    const mainDb = await openDb();
+    const mainDb = await openCommonDb();
     const box = await mainDb.get(
       "SELECT * FROM boxes WHERE id = ?",
       req.params.id,
@@ -303,9 +347,9 @@ app.post("/api/box/:id/measurements", async (req, res) => {
       return res.status(404).json({ error: "Box not found" });
     }
 
-    const { sensor_id, temperature, humidity, notes } = req.body;
+    const { sensor_id, temperature, humidity, notes, timestamp } = req.body;
 
-    if (!sensor_id || temperature === undefined) {
+    if (!sensor_id || !timestamp || temperature === undefined) {
       return res
         .status(400)
         .json({ error: "sensor_id and temperature are required" });
@@ -323,8 +367,8 @@ app.post("/api/box/:id/measurements", async (req, res) => {
     }
 
     const result = await boxDb.run(
-      "INSERT INTO measurements (sensor_id, temperature, humidity, notes) VALUES (?, ?, ?, ?)",
-      [sensor_id, temperature, humidity || null, notes || null],
+      "INSERT INTO measurements (sensor_id, timestamp, temperature, humidity, notes) VALUES (?, ?, ?, ?, ?)",
+      [sensor_id, timestamp, temperature, humidity || null, notes || null],
     );
 
     const measurement = await boxDb.get(

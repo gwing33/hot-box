@@ -9,18 +9,23 @@ if (!fs.existsSync(DB_DIR)) {
   fs.mkdirSync(DB_DIR);
 }
 
-// We'll export this to be used in our server
-export async function openDb() {
+async function _openDb(name) {
   return open({
-    filename: path.join(DB_DIR, "common.sqlite"),
+    filename: path.join(DB_DIR, `${name}.sqlite`),
     driver: sqlite3.Database,
   });
+}
+export async function openCommonDb() {
+  return _openDb("common");
+}
+export async function openBoxDb(boxId) {
+  return _openDb(boxId);
 }
 
 // Initialize the database and create the boxes table
 export async function initializeDatabase() {
   try {
-    const db = await openDb();
+    const db = await openCommonDb();
 
     await db.exec(`
             CREATE TABLE IF NOT EXISTS boxes (
@@ -45,14 +50,6 @@ export async function initializeDatabase() {
   }
 }
 
-// Helper function to open a box's specific database
-export async function openBoxDb(boxId) {
-  return open({
-    filename: path.join(DB_DIR, `${boxId}.sqlite`),
-    driver: sqlite3.Database,
-  });
-}
-
 // Initialize a new box database with sensor support
 export async function initializeBoxDatabase(boxId) {
   const db = await openBoxDb(boxId);
@@ -61,6 +58,8 @@ export async function initializeBoxDatabase(boxId) {
         CREATE TABLE IF NOT EXISTS sensors (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
+            type TEXT,
+            location TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
@@ -69,10 +68,11 @@ export async function initializeBoxDatabase(boxId) {
         CREATE TABLE IF NOT EXISTS measurements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             sensor_id TEXT NOT NULL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            timestamp DATETIME NOT NULL,
             temperature REAL,
             humidity REAL,
             notes TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (sensor_id) REFERENCES sensors(id)
         )
     `);

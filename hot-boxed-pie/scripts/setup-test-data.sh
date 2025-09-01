@@ -18,7 +18,7 @@ echo "Creating new box..."
 BOX_RESPONSE=$(curl -s -X POST "${API_URL}/api/box" \
     -H "Content-Type: application/json" \
     -d '{
-        "name": "Jackie'\''s Big Box",
+        "name": "Jackie'\''s Box",
         "location": "South Wall"
     }')
 
@@ -38,7 +38,9 @@ echo "Creating sensors..."
 TOP_SENSOR_RESPONSE=$(curl -s -X POST "${API_URL}/api/box/${BOX_ID}/sensors" \
     -H "Content-Type: application/json" \
     -d '{
-        "name": "Top Sensor"
+        "name": "Interior South Wall Sensor",
+        "type": "DHT22",
+        "location": "South Wall"
     }')
 
 TOP_SENSOR_ID=$(echo $TOP_SENSOR_RESPONSE | jq -r '.id')
@@ -47,7 +49,9 @@ TOP_SENSOR_ID=$(echo $TOP_SENSOR_RESPONSE | jq -r '.id')
 BOTTOM_SENSOR_RESPONSE=$(curl -s -X POST "${API_URL}/api/box/${BOX_ID}/sensors" \
     -H "Content-Type: application/json" \
     -d '{
-        "name": "Bottom Sensor"
+        "name": "Interior South Ambient Sensor",
+        "type": "DHT22",
+        "location": "South Wall"
     }')
 
 BOTTOM_SENSOR_ID=$(echo $BOTTOM_SENSOR_RESPONSE | jq -r '.id')
@@ -82,6 +86,7 @@ for hour in $(seq 24 -1 0); do
         -H "Content-Type: application/json" \
         -d "{
             \"sensor_id\": \"${TOP_SENSOR_ID}\",
+            \"timestamp\": \"${TIMESTAMP}\",
             \"temperature\": ${TOP_TEMP},
             \"humidity\": ${TOP_HUMIDITY}
         }" > /dev/null
@@ -91,6 +96,7 @@ for hour in $(seq 24 -1 0); do
         -H "Content-Type: application/json" \
         -d "{
             \"sensor_id\": \"${BOTTOM_SENSOR_ID}\",
+            \"timestamp\": \"${TIMESTAMP}\",
             \"temperature\": ${BOTTOM_TEMP},
             \"humidity\": ${BOTTOM_HUMIDITY}
         }" > /dev/null
