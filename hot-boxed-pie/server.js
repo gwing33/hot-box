@@ -352,7 +352,7 @@ app.post("/api/box/:id/measurements", async (req, res) => {
     if (!sensor_id || !timestamp || temperature === undefined) {
       return res
         .status(400)
-        .json({ error: "sensor_id and temperature are required" });
+        .json({ error: "sensor_id, timestamp and temperature are required" });
     }
 
     const boxDb = await openBoxDb(req.params.id);
