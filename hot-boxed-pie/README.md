@@ -31,9 +31,12 @@ Temperature and/or humidity measurements taken from a specific sensor.
 ```
 
 ## Test Commands
-Setup Test Data Script will create a box, sensors and add in measurements to start things out:
 ```shell
+# Setup New Box, Sensors and backfill with 1 day of measurements
 scripts/setup-test-data.sh
+
+# Add Measurement: temp and humidity are optional
+scripts/add-measurement.sh -b YOUR_BOX_ID -s YOUR_SENSOR_ID -t 72.5 -h 45.2
 ```
 
 Below are various commands:
