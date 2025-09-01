@@ -53,18 +53,27 @@ export async function openBoxDb(boxId) {
   });
 }
 
-// Initialize a new box database
+// Initialize a new box database with sensor support
 export async function initializeBoxDatabase(boxId) {
   const db = await openBoxDb(boxId);
 
-  // Create your box-specific tables here
+  await db.exec(`
+        CREATE TABLE IF NOT EXISTS sensors (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
   await db.exec(`
         CREATE TABLE IF NOT EXISTS measurements (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sensor_id TEXT NOT NULL,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             temperature REAL,
             humidity REAL,
-            notes TEXT
+            notes TEXT,
+            FOREIGN KEY (sensor_id) REFERENCES sensors(id)
         )
     `);
 

@@ -1,10 +1,42 @@
 # Hot Boxed Pie
 This is the server for the Hot Box tempature harness.
 
+Potential Tasks
+- Custom date range
+- Export data as CSV
+- Add `sensor_id` to measurements table
+- Basic Authentication, not by user but by hard coded key
+- Temp unit conversion
+
+
 ## API Endpoints
+All endpoints are RESTful and use JSON for data exchange.
 
 ### Boxes Endpoint
 A Box is a test or defined region for the temperature sensor.
+```
+/api/box/:id
+```
+
+### Box Sensors Endpoint
+Temperature and/or humidity sensors that are attached to a specific Box.
+```
+/api/box/:id/sensors/:sensor_id
+```
+
+### Box Sensor Measurements Endpoint
+Temperature and/or humidity measurements taken from a specific sensor.
+```
+/api/box/:id/sensor/:sensor_id/measurements
+```
+
+## Test Commands
+Setup Test Data Script will create a box, sensors and add in measurements to start things out:
+```shell
+scripts/setup-test-data.sh
+```
+
+Below are various commands:
 
 ```shell
 # Where 1756443629592 is the box ID

@@ -158,10 +158,11 @@ app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
 
-// GET measurements from a specific box
-app.get("/api/box/:id/measurements", async (req, res) => {
+// ... (previous imports and setup remain the same)
+
+// Get sensors for a box
+app.get("/api/box/:id/sensors", async (req, res) => {
   try {
-    // First, verify the box exists in the main database
     const mainDb = await openDb();
     const box = await mainDb.get(
       "SELECT * FROM boxes WHERE id = ?",
@@ -172,27 +173,89 @@ app.get("/api/box/:id/measurements", async (req, res) => {
       return res.status(404).json({ error: "Box not found" });
     }
 
-    // Query parameters
+    const boxDb = await openBoxDb(req.params.id);
+    const sensors = await boxDb.all("SELECT * FROM sensors");
+
+    res.json(sensors);
+  } catch (error) {
+    console.error("Error fetching sensors:", error);
+    res.status(500).json({ error: "Failed to fetch sensors" });
+  }
+});
+
+// Add a sensor to a box
+app.post("/api/box/:id/sensors", async (req, res) => {
+  try {
+    const mainDb = await openDb();
+    const box = await mainDb.get(
+      "SELECT * FROM boxes WHERE id = ?",
+      req.params.id,
+    );
+
+    if (!box) {
+      return res.status(404).json({ error: "Box not found" });
+    }
+
+    const { name } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: "Sensor name is required" });
+    }
+
+    const boxDb = await openBoxDb(req.params.id);
+    const sensorId = Date.now().toString();
+
+    await boxDb.run("INSERT INTO sensors (id, name) VALUES (?, ?)", [
+      sensorId,
+      name,
+    ]);
+
+    const sensor = await boxDb.get(
+      "SELECT * FROM sensors WHERE id = ?",
+      sensorId,
+    );
+    res.status(201).json(sensor);
+  } catch (error) {
+    console.error("Error creating sensor:", error);
+    res.status(500).json({ error: "Failed to create sensor" });
+  }
+});
+
+// Update measurements endpoint to handle sensors
+app.get("/api/box/:id/measurements", async (req, res) => {
+  try {
+    const mainDb = await openDb();
+    const box = await mainDb.get(
+      "SELECT * FROM boxes WHERE id = ?",
+      req.params.id,
+    );
+
+    if (!box) {
+      return res.status(404).json({ error: "Box not found" });
+    }
+
     const limit = parseInt(req.query.limit) || 100;
     const offset = parseInt(req.query.offset) || 0;
     const startTime = req.query.start_time;
     const endTime = req.query.end_time;
 
-    // Open the box's specific database
     const boxDb = await openBoxDb(req.params.id);
 
-    let query = "SELECT * FROM measurements";
+    let query = `
+            SELECT m.*, s.name as sensor_name
+            FROM measurements m
+            JOIN sensors s ON m.sensor_id = s.id
+        `;
+
     let queryParams = [];
 
-    // Add time range filters if provided
     if (startTime || endTime) {
       const conditions = [];
       if (startTime) {
-        conditions.push("timestamp >= ?");
+        conditions.push("m.timestamp >= ?");
         queryParams.push(startTime);
       }
       if (endTime) {
-        conditions.push("timestamp <= ?");
+        conditions.push("m.timestamp <= ?");
         queryParams.push(endTime);
       }
       if (conditions.length > 0) {
@@ -200,22 +263,25 @@ app.get("/api/box/:id/measurements", async (req, res) => {
       }
     }
 
-    // Add ordering and pagination
-    query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?";
+    query += " ORDER BY m.timestamp DESC LIMIT ? OFFSET ?";
     queryParams.push(limit, offset);
 
     const measurements = await boxDb.all(query, queryParams);
 
-    // Get total count for pagination
+    // Get total count
     const countResult = await boxDb.get(
       "SELECT COUNT(*) as total FROM measurements",
     );
+
+    // Get all sensors for this box
+    const sensors = await boxDb.all("SELECT * FROM sensors");
 
     res.json({
       box_id: req.params.id,
       total_measurements: countResult.total,
       limit,
       offset,
+      sensors,
       measurements,
     });
   } catch (error) {
@@ -224,10 +290,9 @@ app.get("/api/box/:id/measurements", async (req, res) => {
   }
 });
 
-// Add a measurement to a box
+// Update POST measurements endpoint to require sensor_id
 app.post("/api/box/:id/measurements", async (req, res) => {
   try {
-    // First, verify the box exists in the main database
     const mainDb = await openDb();
     const box = await mainDb.get(
       "SELECT * FROM boxes WHERE id = ?",
@@ -238,25 +303,32 @@ app.post("/api/box/:id/measurements", async (req, res) => {
       return res.status(404).json({ error: "Box not found" });
     }
 
-    const { temperature, humidity, notes } = req.body;
+    const { sensor_id, temperature, humidity, notes } = req.body;
 
-    // Validate required fields
-    if (temperature === undefined) {
-      return res.status(400).json({ error: "Temperature is required" });
+    if (!sensor_id || temperature === undefined) {
+      return res
+        .status(400)
+        .json({ error: "sensor_id and temperature are required" });
     }
 
-    // Open the box's specific database
     const boxDb = await openBoxDb(req.params.id);
 
-    // Insert the measurement
+    // Verify sensor exists
+    const sensor = await boxDb.get(
+      "SELECT * FROM sensors WHERE id = ?",
+      sensor_id,
+    );
+    if (!sensor) {
+      return res.status(404).json({ error: "Sensor not found" });
+    }
+
     const result = await boxDb.run(
-      "INSERT INTO measurements (temperature, humidity, notes) VALUES (?, ?, ?)",
-      [temperature, humidity || null, notes || null],
+      "INSERT INTO measurements (sensor_id, temperature, humidity, notes) VALUES (?, ?, ?, ?)",
+      [sensor_id, temperature, humidity || null, notes || null],
     );
 
-    // Get the inserted measurement
     const measurement = await boxDb.get(
-      "SELECT * FROM measurements WHERE id = ?",
+      "SELECT m.*, s.name as sensor_name FROM measurements m JOIN sensors s ON m.sensor_id = s.id WHERE m.id = ?",
       result.lastID,
     );
 

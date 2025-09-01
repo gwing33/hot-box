@@ -1,5 +1,6 @@
 // Global state for current time range
 let currentTimeRange = 24; // Default to 24 hours
+let chartInstances = new Map(); // Store chart instances by box ID
 
 // Helper function to format date for API
 function formatDate(date) {
@@ -37,51 +38,280 @@ async function fetchMeasurements(boxId) {
         new URLSearchParams({
           start_time: dateRange.start,
           end_time: dateRange.end,
-          limit: 1000, // Increased limit for better resolution
+          limit: 1000,
         }),
     );
     const data = await response.json();
-    return data.measurements;
+    return data;
   } catch (error) {
     console.error(`Error fetching measurements for box ${boxId}:`, error);
-    return [];
+    return { measurements: [], sensors: [] };
   }
 }
 
+// Create or update temperature chart for a box
+function updateChart(containerId, measurements, sensors) {
+  const ctx = document.getElementById(containerId);
+  if (!ctx) return; // Exit if container not found
+
+  // Group measurements by sensor
+  const sensorData = {};
+  measurements.reverse().forEach((m) => {
+    if (!sensorData[m.sensor_id]) {
+      sensorData[m.sensor_id] = {
+        name: m.sensor_name,
+        timestamps: [],
+        temperatures: [],
+        humidities: [],
+      };
+    }
+    sensorData[m.sensor_id].timestamps.push(
+      new Date(m.timestamp).toLocaleString(),
+    );
+    sensorData[m.sensor_id].temperatures.push(m.temperature);
+    sensorData[m.sensor_id].humidities.push(m.humidity);
+  });
+
+  // Get or create chart instance
+  let chart = chartInstances.get(containerId);
+
+  // Generate consistent colors for sensors (store in closure)
+  const sensorColors = new Map();
+  function getColorForSensor(sensorId) {
+    if (!sensorColors.has(sensorId)) {
+      const hue = (sensorColors.size * 137.5) % 360; // Golden angle for good color distribution
+      sensorColors.set(sensorId, `hsl(${hue}, 70%, 50%)`);
+    }
+    return sensorColors.get(sensorId);
+  }
+
+  // Create datasets for each sensor
+  const datasets = [];
+  Object.entries(sensorData).forEach(([sensorId, data]) => {
+    const color = getColorForSensor(sensorId);
+
+    // Temperature dataset
+    datasets.push({
+      label: `${data.name} (°F)`,
+      data: data.temperatures,
+      borderColor: color,
+      backgroundColor: color + "20",
+      fill: false,
+      tension: 0.4,
+    });
+
+    // Humidity dataset (hidden by default)
+    if (data.humidities.some((h) => h !== null)) {
+      datasets.push({
+        label: `${data.name} Humidity (%)`,
+        data: data.humidities,
+        borderColor: color,
+        backgroundColor: color + "10",
+        fill: false,
+        tension: 0.4,
+        hidden: true, // or check previous state if updating
+      });
+    }
+  });
+
+  // Get timestamps from any sensor
+  const labels = Object.values(sensorData)[0]?.timestamps || [];
+
+  if (chart) {
+    // Update existing chart
+    chart.data.labels = labels;
+    chart.data.datasets = datasets;
+    chart.options.plugins.title.text = `Temperature & Humidity (Last ${currentTimeRange} hours)`;
+    chart.update("none"); // Update without animation for real-time updates
+  } else {
+    // Create new chart
+    chart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: datasets,
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: `Temperature & Humidity (Last ${currentTimeRange} hours)`,
+          },
+          tooltip: {
+            mode: "index",
+            intersect: false,
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: false,
+          },
+          x: {
+            ticks: {
+              maxTicksLimit: 8,
+            },
+          },
+        },
+        interaction: {
+          intersect: false,
+          mode: "index",
+        },
+      },
+    });
+    chartInstances.set(containerId, chart);
+  }
+}
+
+// Update a single box's data
+async function updateBoxData(boxId) {
+  const { measurements } = await fetchMeasurements(boxId);
+  if (measurements && measurements.length > 0) {
+    updateChart(`chart-${boxId}`, measurements);
+
+    // Update latest readings display
+    const stats = getStats(measurements);
+    const latestReadingsDiv = document.querySelector(
+      `#box-${boxId} .latest-readings`,
+    );
+    if (latestReadingsDiv && stats) {
+      // Group latest readings by sensor
+      const sensorReadings = {};
+      measurements.forEach((m) => {
+        if (
+          !sensorReadings[m.sensor_id] ||
+          new Date(m.timestamp) >
+            new Date(sensorReadings[m.sensor_id].timestamp)
+        ) {
+          sensorReadings[m.sensor_id] = m;
+        }
+      });
+
+      // Update the display for each sensor
+      Object.values(sensorReadings).forEach((reading) => {
+        const sensorStatsDiv = latestReadingsDiv.querySelector(
+          `#sensor-${reading.sensor_id}-stats`,
+        );
+        if (sensorStatsDiv) {
+          sensorStatsDiv.innerHTML = `
+                        <h3>${reading.sensor_name}</h3>
+                        <p>Current: ${reading.temperature.toFixed(1)}°F</p>
+                        ${reading.humidity ? `<p>Humidity: ${reading.humidity.toFixed(1)}%</p>` : ""}
+                        <p><small>Updated: ${new Date(reading.timestamp).toLocaleString()}</small></p>
+                    `;
+        }
+      });
+    }
+  }
+}
+
+// Function to update all box data
+async function updateAllBoxData() {
+  const boxes = await fetchBoxes();
+  boxes.forEach((box) => updateBoxData(box.id));
+}
+
+// Initialize the dashboard
+async function initDashboard() {
+  const boxList = document.getElementById("boxList");
+  const boxes = await fetchBoxes();
+
+  if (boxes.length === 0) {
+    boxList.innerHTML = "No boxes found. Create a box to get started.";
+    return;
+  }
+
+  // Initial render of all boxes
+  const boxPromises = boxes.map(async (box) => {
+    const { measurements } = await fetchMeasurements(box.id);
+    return {
+      html: renderBox(box, measurements),
+      measurements,
+      id: box.id,
+    };
+  });
+
+  const results = await Promise.all(boxPromises);
+  boxList.innerHTML = results.map((result) => result.html).join("");
+
+  // Initialize charts
+  results.forEach((result) => {
+    if (result.measurements.length > 0) {
+      updateChart(`chart-${result.id}`, result.measurements);
+    }
+  });
+}
+
 // Create a temperature chart for a box
-function createTemperatureChart(containerId, measurements) {
+function createTemperatureChart(containerId, measurements, sensors) {
   const ctx = document.getElementById(containerId).getContext("2d");
 
-  // Reverse measurements to show oldest to newest
-  const chartData = measurements.reverse();
+  // Group measurements by sensor
+  const sensorData = {};
+  measurements.reverse().forEach((m) => {
+    if (!sensorData[m.sensor_id]) {
+      sensorData[m.sensor_id] = {
+        name: m.sensor_name,
+        timestamps: [],
+        temperatures: [],
+        humidities: [],
+      };
+    }
+    sensorData[m.sensor_id].timestamps.push(
+      new Date(m.timestamp).toLocaleString(),
+    );
+    sensorData[m.sensor_id].temperatures.push(m.temperature);
+    sensorData[m.sensor_id].humidities.push(m.humidity);
+  });
 
-  const labels = chartData.map((m) => new Date(m.timestamp).toLocaleString());
-  const temperatures = chartData.map((m) => m.temperature);
-  const humidities = chartData.map((m) => m.humidity);
+  // Generate random colors for sensors
+  function getRandomColor() {
+    const letters = "0123456789ABCDEF";
+    let color = "#";
+    for (let i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+  }
+
+  // Create datasets for each sensor
+  const datasets = [];
+  Object.entries(sensorData).forEach(([sensorId, data]) => {
+    const color = getRandomColor();
+
+    // Temperature dataset
+    datasets.push({
+      label: `${data.name} (°F)`,
+      data: data.temperatures,
+      borderColor: color,
+      backgroundColor: color + "20", // Add transparency
+      fill: false,
+      tension: 0.4,
+    });
+
+    // Humidity dataset (hidden by default)
+    if (data.humidities.some((h) => h !== null)) {
+      datasets.push({
+        label: `${data.name} Humidity (%)`,
+        data: data.humidities,
+        borderColor: color,
+        backgroundColor: color + "10", // More transparent
+        fill: false,
+        tension: 0.4,
+        hidden: true,
+      });
+    }
+  });
+
+  // Get timestamps from any sensor (they should all have the same timestamps)
+  const labels = Object.values(sensorData)[0]?.timestamps || [];
 
   return new Chart(ctx, {
     type: "line",
     data: {
       labels: labels,
-      datasets: [
-        {
-          label: "Temperature (°F)",
-          data: temperatures,
-          borderColor: "rgb(255, 99, 132)",
-          backgroundColor: "rgba(255, 99, 132, 0.1)",
-          fill: true,
-          tension: 0.4,
-        },
-        {
-          label: "Humidity (%)",
-          data: humidities,
-          borderColor: "rgb(54, 162, 235)",
-          backgroundColor: "rgba(54, 162, 235, 0.1)",
-          fill: true,
-          tension: 0.4,
-          hidden: true, // Hidden by default, can be toggled
-        },
-      ],
+      datasets: datasets,
     },
     options: {
       responsive: true,
@@ -99,15 +329,10 @@ function createTemperatureChart(containerId, measurements) {
       scales: {
         y: {
           beginAtZero: false,
-          ticks: {
-            callback: function (value) {
-              return value + (this.chart.data.datasets[0].hidden ? "%" : "°F");
-            },
-          },
         },
         x: {
           ticks: {
-            maxTicksLimit: 8, // Limit the number of x-axis labels
+            maxTicksLimit: 8,
           },
         },
       },
@@ -195,39 +420,6 @@ function renderBox(box, measurements) {
     `;
 }
 
-// Initialize the dashboard
-async function initDashboard() {
-  const boxList = document.getElementById("boxList");
-  const boxes = await fetchBoxes();
-
-  if (boxes.length === 0) {
-    boxList.innerHTML = "No boxes found. Create a box to get started.";
-    return;
-  }
-
-  // Fetch measurements for each box and render them
-  const boxPromises = boxes.map(async (box) => {
-    const measurements = await fetchMeasurements(box.id);
-    return {
-      html: renderBox(box, measurements),
-      measurements,
-      id: box.id,
-    };
-  });
-
-  const results = await Promise.all(boxPromises);
-
-  // Render all boxes
-  boxList.innerHTML = results.map((result) => result.html).join("");
-
-  // Initialize charts after DOM elements are created
-  results.forEach((result) => {
-    if (result.measurements.length > 0) {
-      createTemperatureChart(`chart-${result.id}`, result.measurements);
-    }
-  });
-}
-
 // Handle time range changes
 function handleTimeRangeChange(event) {
   currentTimeRange = parseInt(event.target.value);
@@ -235,10 +427,12 @@ function handleTimeRangeChange(event) {
 }
 
 // Start the dashboard
-document
-  .getElementById("timeRange")
-  .addEventListener("change", handleTimeRangeChange);
-initDashboard();
+document.getElementById("timeRange").addEventListener("change", (event) => {
+  currentTimeRange = parseInt(event.target.value);
+  chartInstances.clear(); // Clear existing chart instances
+  initDashboard(); // Reinitialize with new time range
+});
 
-// Refresh data periodically (every minute)
-setInterval(initDashboard, 60000);
+// Initialize dashboard and set up refresh interval
+initDashboard();
+setInterval(updateAllBoxData, 60000); // Update every minute
