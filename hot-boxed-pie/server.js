@@ -1,10 +1,5 @@
 import express from "express";
-import {
-  initializeDatabase,
-  initializeBoxDatabase,
-  openBoxDb,
-  openCommonDb,
-} from "./database.js";
+import { initializeDatabase } from "./database.js";
 import { fileURLToPath } from "url";
 import path from "path";
 // Import routes
