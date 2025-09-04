@@ -4,7 +4,6 @@ This is the server for the Hot Box tempature harness.
 Potential Tasks
 - Custom date range
 - Export data as CSV
-- Add `sensor_id` to measurements table
 - Basic Authentication, not by user but by hard coded key
 - Temp unit conversion
 
