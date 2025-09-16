@@ -8,3 +8,6 @@ Connected and set credentials but I wasn't able to have it pick up those credent
 
 ### Notes
 - Mobile App used: [nRF Connect for Mobile](https://apps.apple.com/gb/app/nrf-connect-for-mobile/id1054362403)
+- [WLAN Guide](https://www.pythontutorials.net/blog/micropython-wlan-status/)
+- [WLAN Docs](https://docs.micropython.org/en/latest/library/network.WLAN.html)
+- [Needed ble_simple_peripheral.py](https://github.com/micropython/micropython/blob/master/examples/bluetooth/ble_simple_peripheral.py)
