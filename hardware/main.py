@@ -4,6 +4,41 @@ import ds18x20
 import time
 import binascii
 import os
+import network
+import machine
+# Connect to WiFi
+def connect_wifi():
+    try:
+        from secrets import WIFI_SSID, WIFI_PASSWORD
+    except ImportError:
+        print("Warning: secrets.py not found, skipping WiFi connection")
+        return False
+
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+
+    if not wlan.isconnected():
+        print(f'Connecting to WiFi: {WIFI_SSID}')
+        wlan.connect(WIFI_SSID, WIFI_PASSWORD)
+
+        max_wait = 10
+        while max_wait > 0:
+            if wlan.isconnected():
+                break
+            max_wait -= 1
+            print('Waiting for connection...')
+            time.sleep(1)
+
+    if wlan.isconnected():
+        status = wlan.ifconfig()
+        print(f'Connected! IP: {status[0]}')
+        return True
+    else:
+        print('Failed to connect to WiFi')
+        return False
+
+# Connect to WiFi before starting
+connect_wifi()
 
 # Set RTC
 rtc = machine.RTC()
@@ -14,33 +49,6 @@ def iso_timestamp(t):
     )
     return timestamp
 
-def set_time_from_iso(iso_string):
-    try:
-        # Split date and time parts (separated by 'T' or space)
-        if 'T' in iso_string:
-            date_part, time_part = iso_string.split('T')
-        else:
-            date_part, time_part = iso_string.split(' ')
-            
-        # Parse date components
-        year, month, day = [int(x) for x in date_part.split('-')]
-        
-        # Parse time components
-        time_components = time_part.split(':')
-        hour = int(time_components[0])
-        minute = int(time_components[1])
-        second = int(time_components[2])
-        
-        # weekday=0 (Monday), subseconds=0
-        rtc.datetime((year, month, day, 0, hour, minute, second, 0))
-        return True
-        
-    except Exception as e:
-        print("Error setting time:", str(e))
-        return False
-
-# TEMP Hack to adjust the starting time when the device is fully offline
-set_time_from_iso("2025-09-10T10:00:00")
 default_now = rtc.datetime()
 print(iso_timestamp(default_now))
 
@@ -158,4 +166,3 @@ while True:
     test_file.write(','.join(newLine)+'\n')
     test_file.flush()
     time.sleep(60*15)
-
