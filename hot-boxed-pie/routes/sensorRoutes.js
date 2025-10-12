@@ -1,6 +1,7 @@
 import express from "express";
 import { openBoxDb } from "../db.js";
 import { boxExists } from "../middleware/boxExists.js";
+import { getSensorById, createSensor } from "../utils/sensors.js";
 
 const router = express.Router();
 
@@ -20,24 +21,24 @@ router.get("/:boxId/sensors", boxExists, async (req, res) => {
 // Add a sensor to a box
 router.post("/:boxId/sensors", boxExists, async (req, res) => {
   try {
-    const { name, type, location } = req.body;
+    const { id, name, type, location } = req.body;
+    if (!id) {
+      return res.status(400).json({ error: "Sensor id is required" });
+    }
     if (!name) {
       return res.status(400).json({ error: "Sensor name is required" });
     }
 
-    const boxDb = await openBoxDb(req.params.boxId);
-    const sensorId = Date.now().toString();
+    const sensor = await getSensorById(req.params.boxId, id);
+    if (sensor) {
+      return res.status(201).json(sensor);
+    }
 
-    await boxDb.run(
-      "INSERT INTO sensors (id, name, type, location) VALUES (?, ?, ?, ?)",
-      [sensorId, name, type || null, location || null],
-    );
-
-    const sensor = await boxDb.get(
-      "SELECT * FROM sensors WHERE id = ?",
-      sensorId,
-    );
-    res.status(201).json(sensor);
+    const newSensor = await createSensor(req.params.boxId, id, name, {
+      type,
+      location,
+    });
+    res.status(201).json(newSensor);
   } catch (error) {
     console.error("Error creating sensor:", error);
     res.status(500).json({ error: "Failed to create sensor" });

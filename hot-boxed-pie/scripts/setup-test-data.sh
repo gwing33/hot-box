@@ -18,8 +18,8 @@ echo "Creating new box..."
 BOX_RESPONSE=$(curl -s -X POST "${API_URL}/api/box" \
     -H "Content-Type: application/json" \
     -d '{
-        "name": "Jackie'\''s Box",
-        "location": "South Wall"
+        "name": "Test Box 01",
+        "description": "This payload can have any information you want"
     }')
 
 BOX_ID=$(echo $BOX_RESPONSE | jq -r '.id')
@@ -34,31 +34,33 @@ echo "Created box with ID: $BOX_ID"
 # Create sensors
 echo "Creating sensors..."
 
-# Create top sensor
-TOP_SENSOR_RESPONSE=$(curl -s -X POST "${API_URL}/api/box/${BOX_ID}/sensors" \
+# Create a sensor
+A_SENSOR_RESPONSE=$(curl -s -X POST "${API_URL}/api/box/${BOX_ID}/sensors" \
     -H "Content-Type: application/json" \
     -d '{
-        "name": "Interior South Wall Sensor",
+        "id": "TEMP_01",
+        "name": "A Sensor",
         "type": "DHT22",
         "location": "South Wall"
     }')
 
-TOP_SENSOR_ID=$(echo $TOP_SENSOR_RESPONSE | jq -r '.id')
+A_SENSOR_ID=$(echo $A_SENSOR_RESPONSE | jq -r '.id')
 
-# Create bottom sensor
-BOTTOM_SENSOR_RESPONSE=$(curl -s -X POST "${API_URL}/api/box/${BOX_ID}/sensors" \
+# Create b sensor
+B_SENSOR_RESPONSE=$(curl -s -X POST "${API_URL}/api/box/${BOX_ID}/sensors" \
     -H "Content-Type: application/json" \
     -d '{
-        "name": "Interior South Ambient Sensor",
+        "id": "TEMP_02",
+        "name": "B Sensor",
         "type": "DHT22",
         "location": "South Wall"
     }')
 
-BOTTOM_SENSOR_ID=$(echo $BOTTOM_SENSOR_RESPONSE | jq -r '.id')
+B_SENSOR_ID=$(echo $B_SENSOR_RESPONSE | jq -r '.id')
 
 echo "Created sensors:"
-echo "Top Sensor ID: $TOP_SENSOR_ID"
-echo "Bottom Sensor ID: $BOTTOM_SENSOR_ID"
+echo "A Sensor ID: $A_SENSOR_ID"
+echo "B Sensor ID: $B_SENSOR_ID"
 
 # Generate test data for the last 24 hours
 echo "Generating test data for the last 24 hours..."
@@ -76,29 +78,29 @@ for hour in $(seq 24 -1 0); do
     TIMESTAMP=$(date -u -v-${hour}H +"%Y-%m-%dT%H:%M:%SZ")
 
     # Generate random temperatures and humidity
-    TOP_TEMP=$(random_range 72 77)    # Top sensor slightly warmer
-    TOP_HUMIDITY=$(random_range 45 55)
-    BOTTOM_TEMP=$(random_range 70 75)  # Bottom sensor slightly cooler
-    BOTTOM_HUMIDITY=$(random_range 40 50)
+    A_TEMP=$(random_range 72 77)    # Top sensor slightly warmer
+    A_HUMIDITY=$(random_range 45 55)
+    B_TEMP=$(random_range 70 75)  # Bottom sensor slightly cooler
+    B_HUMIDITY=$(random_range 40 50)
 
     # Add measurement for top sensor
     curl -s -X POST "${API_URL}/api/box/${BOX_ID}/measurements" \
         -H "Content-Type: application/json" \
         -d "{
-            \"sensor_id\": \"${TOP_SENSOR_ID}\",
+            \"sensor_id\": \"${A_SENSOR_ID}\",
             \"timestamp\": \"${TIMESTAMP}\",
-            \"temperature\": ${TOP_TEMP},
-            \"humidity\": ${TOP_HUMIDITY}
+            \"temperature\": ${A_TEMP},
+            \"humidity\": ${A_HUMIDITY}
         }" > /dev/null
 
     # Add measurement for bottom sensor
     curl -s -X POST "${API_URL}/api/box/${BOX_ID}/measurements" \
         -H "Content-Type: application/json" \
         -d "{
-            \"sensor_id\": \"${BOTTOM_SENSOR_ID}\",
+            \"sensor_id\": \"${B_SENSOR_ID}\",
             \"timestamp\": \"${TIMESTAMP}\",
-            \"temperature\": ${BOTTOM_TEMP},
-            \"humidity\": ${BOTTOM_HUMIDITY}
+            \"temperature\": ${B_TEMP},
+            \"humidity\": ${B_HUMIDITY}
         }" > /dev/null
 
     echo "Added measurements for hour -${hour}"
@@ -106,6 +108,6 @@ done
 
 echo "Setup complete!"
 echo "Box ID: $BOX_ID"
-echo "Top Sensor ID: $TOP_SENSOR_ID"
-echo "Bottom Sensor ID: $BOTTOM_SENSOR_ID"
+echo "Top Sensor ID: $A_SENSOR_ID"
+echo "Bottom Sensor ID: $B_SENSOR_ID"
 echo "Visit http://localhost:3000 to see the dashboard"

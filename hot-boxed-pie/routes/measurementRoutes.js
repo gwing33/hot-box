@@ -85,7 +85,11 @@ router.post("/:boxId/measurements", boxExists, async (req, res) => {
       notes,
       timestamp,
     });
-    return await getMeasurementById(req.params.boxId, measurementId);
+    const measurement = await getMeasurementById(
+      req.params.boxId,
+      measurementId,
+    );
+    return res.status(201).json(measurement);
   } catch (error) {
     if (error.message === "Sensor not found") {
       return res.status(404).json({ error: error.message });
