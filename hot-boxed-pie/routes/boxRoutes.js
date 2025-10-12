@@ -1,5 +1,5 @@
 import express from "express";
-import { openCommonDb, initializeBoxDatabase } from "../database.js";
+import { openCommonDb, initializeBoxDatabase } from "../db.js";
 import { boxExists } from "../middleware/boxExists.js";
 import path from "path";
 

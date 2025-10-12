@@ -1,5 +1,5 @@
 import express from "express";
-import { openCommonDb, openBoxDb } from "../database.js";
+import { openBoxDb } from "../db.js";
 import { boxExists } from "../middleware/boxExists.js";
 
 const router = express.Router();

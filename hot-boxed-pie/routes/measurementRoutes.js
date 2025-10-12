@@ -1,6 +1,10 @@
 import express from "express";
-import { openCommonDb, openBoxDb } from "../database.js";
+import { openBoxDb } from "../db.js";
 import { boxExists } from "../middleware/boxExists.js";
+import {
+  getMeasurementById,
+  createMeasurement,
+} from "../utils/measurements.js";
 
 const router = express.Router();
 
@@ -74,29 +78,18 @@ router.post("/:boxId/measurements", boxExists, async (req, res) => {
         .json({ error: "sensor_id, timestamp and temperature are required" });
     }
 
-    const boxDb = await openBoxDb(req.params.boxId);
-
-    // Verify sensor exists
-    const sensor = await boxDb.get(
-      "SELECT * FROM sensors WHERE id = ?",
+    const measurementId = await createMeasurement(req.params.boxId, {
       sensor_id,
-    );
-    if (!sensor) {
-      return res.status(404).json({ error: "Sensor not found" });
-    }
-
-    const result = await boxDb.run(
-      "INSERT INTO measurements (sensor_id, timestamp, temperature, humidity, notes) VALUES (?, ?, ?, ?, ?)",
-      [sensor_id, timestamp, temperature, humidity || null, notes || null],
-    );
-
-    const measurement = await boxDb.get(
-      "SELECT m.*, s.name as sensor_name FROM measurements m JOIN sensors s ON m.sensor_id = s.id WHERE m.id = ?",
-      result.lastID,
-    );
-
-    res.status(201).json(measurement);
+      temperature,
+      humidity,
+      notes,
+      timestamp,
+    });
+    return await getMeasurementById(req.params.boxId, measurementId);
   } catch (error) {
+    if (error.message === "Sensor not found") {
+      return res.status(404).json({ error: error.message });
+    }
     console.error("Error adding measurement:", error);
     res.status(500).json({ error: "Failed to add measurement" });
   }

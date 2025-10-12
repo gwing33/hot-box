@@ -1,13 +1,9 @@
-import { openCommonDb } from "../database.js";
+import { getBoxById } from "../utils/boxes.js";
 
 // Middleware to check if a box exists
 export async function boxExists(req, res, next) {
   try {
-    const mainDb = await openCommonDb();
-    const box = await mainDb.get(
-      "SELECT * FROM boxes WHERE id = ?",
-      req.params.boxId,
-    );
+    const box = await getBoxById(req.params.boxId);
 
     if (!box) {
       return res.status(404).json({ error: "Box not found" });
