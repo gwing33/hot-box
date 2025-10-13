@@ -1,4 +1,6 @@
 import network
+import time
+
 
 # Connect to WiFi
 def connectWifi():
@@ -12,7 +14,7 @@ def connectWifi():
     wlan.active(True)
 
     if not wlan.isconnected():
-        print(f'Connecting to WiFi: {WIFI_SSID}')
+        print(f"Connecting to WiFi: {WIFI_SSID}")
         wlan.connect(WIFI_SSID, WIFI_PASSWORD)
 
         max_wait = 10
@@ -20,13 +22,13 @@ def connectWifi():
             if wlan.isconnected():
                 break
             max_wait -= 1
-            print('Waiting for connection...')
+            print("Waiting for connection...")
             time.sleep(1)
 
     if wlan.isconnected():
         status = wlan.ifconfig()
-        print(f'Connected! IP: {status[0]}')
+        print(f"Connected! IP: {status[0]}")
         return True
     else:
-        print('Failed to connect to WiFi')
+        print("Failed to connect to WiFi")
         return False

@@ -3,9 +3,15 @@ import time
 
 from wifi import connectWifi
 from datetime import iso_timestamp, initTime
-from file import openFile
-from util import cToF
-from sensors import getSensors, convertTemp, readTemp, getAllSensorNames, getSensorName
+from sensors import (
+    getSensorId,
+    getSensors,
+    convertTemp,
+    readTemp,
+    getSensorName,
+)
+from api import send_api_request
+from secrets import HOT_BOX_ID
 
 rtc = machine.RTC()
 
@@ -15,28 +21,50 @@ connectWifi()
 # Set Proper Time
 initTime(rtc)
 
-# Instead of writing to a file as such, here is where I want to add in the ability to send this data to a server
+# Register Sensors
+registeredSensors = True
+for device in getSensors():
+    id = getSensorId(device)
+    name = getSensorName(device)
+    print("Registering Sensor", id, name)
+    resp = send_api_request(
+        f"/api/box/{HOT_BOX_ID}/sensors/",
+        data={"id": id, "name": name, "type": "ds18b20"},
+        method="POST",
+    )
+    if resp != None and (resp["status"] == 200 | resp["status"] == 201):
+        print("Sensor registered successfully", id, name)
+    else:
+        registeredSensors = False
 
-# Open File to write file header
-test_file = openFile()
-test_file.write('Time,'+','.join(getAllSensorNames())+'\n')
-test_file.flush()
+if registeredSensors:
+    print("All sensors registered")
+else:
+    print("Failed to register all sensors")
+    exit()
 
 while True:
     convertTemp()
     time.sleep_ms(750)
 
     now = rtc.datetime()
-    newLine = [iso_timestamp(now)]
     for device in getSensors():
+        id = getSensorId(device)
         name = getSensorName(device)
         c_raw = readTemp(device)
-        newLine.append(str(c_raw))
-        f_raw = cToF(c_raw)
-        c = round(c_raw,1)
-        f = round(f_raw,1)
-        print(f'{name}: {c} C, {f} F')
+        print(id, name, c_raw)
+        resp = send_api_request(
+            f"/api/box/{HOT_BOX_ID}/measurements/",
+            data={
+                "sensor_id": id,
+                "timestamp": iso_timestamp(now),
+                "temperature": c_raw,
+            },
+            method="POST",
+        )
+        if resp != None and (resp["status"] == 200 | resp["status"] == 201):
+            print(f"Measured {name} ({id}): {c_raw}")
+        else:
+            print("Failed to record measurement", id, name, c_raw)
 
-    test_file.write(','.join(newLine)+'\n')
-    test_file.flush()
-    time.sleep(60*15)
+    time.sleep(10)
