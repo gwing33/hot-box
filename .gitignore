@@ -6,3 +6,6 @@ node_modules/
 databases/
 logs/
 secrets.py
+
+termodyn/rs/debug
+termodyn/rs/terget
