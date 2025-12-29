@@ -53,3 +53,8 @@ FreeFem++ mycode.edp.md
 ```python
 uv run my_script.py
 ```
+## Models
+
+1. [Perfect Wall](https://www.patriquinarchitects.com/need-excellent-thermal-performance-try-these-wall-assemblies/)
+1. [Perfect Wall R40](https://www.patriquinarchitects.com/wp-content/uploads/2021/04/UPDATED-SLATE-SCHOOL_.jpg)
+1. [Larsen Truss Wall R47](https://www.patriquinarchitects.com/wp-content/uploads/2021/04/UPDATED-HIDDEN-BROOK_1.jpg)
