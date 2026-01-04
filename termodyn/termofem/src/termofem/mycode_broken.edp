@@ -1,0 +1,23 @@
+// Mesh
+mesh Ths = square(10, 10);
+mesh Thg = square(30, 30, [x*3-1, y*3-1]);
+plot(Ths, Thg, wait=true);
+
+// Fespace
+fespace Ch(Ths, P2);
+Ch us = (x-0.5)*(y-0.5);
+
+fespace Dh(Ths, P2dc);
+Dh vs = (x-0.5)*(y-0.5);
+
+fespace Fh(Thg, P2dc);
+Fh ug=us, vg=vs;
+// Plot
+plot(us, ug, wait=true);
+plot(vs, vg, wait=true);
+
+//load "msh3"
+//border circle(t=0, 2*pi){x=cos(t); y=sin(t);}
+//meshL ThL = buildmeshL(circle(100));
+//ThL = OrientNormal(ThL, unbounded=1);
+//plot(ThL, wait=true);

@@ -1,0 +1,12 @@
+%Add ffmatlib to the search path
+%/Users/ivandjordjevic/proj/freefem_matlab_octave_plot/release-v2.0/demos
+%addpath('add here the link to the ffmatlib');
+addpath('./');
+%Load the mesh
+[p,b,t,nv,nbe,nt,labels]=ffreadmesh('capacitor.msh');
+%Load the finite element space connectivity
+vh=ffreaddata('capacitor_vh.txt');
+%Load scalar data
+u=ffreaddata('capacitor_potential.txt');
+%Load 2D vector field data
+[Ex,Ey]=ffreaddata('capacitor_field.txt');

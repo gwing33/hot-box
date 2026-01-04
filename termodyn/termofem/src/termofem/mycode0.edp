@@ -1,0 +1,40 @@
+bool debug = true;
+mesh Th = square(10,10);
+//plot(Th);
+fespace Vh(Th, P2);
+Vh u, v;
+//cout << u;
+matrix A = [[1, 2, 3],
+             [4, 5, 6],
+             [7, 8, 9]];
+//cout << A;
+//cout << A.n;
+//cout << A.m;
+int NRows = A.n;
+int NColumns = A.m;
+cout << "NRows: " << NRows << endl;
+cout << "NColumns: " << NColumns << endl;
+
+{
+    border a(t=0, 2*pi){x=cos(t); y=sin(t); label=1;}
+    mesh Th = buildmesh(a(20));
+    Th = emptymesh(Th);
+    plot(Th, wait=1);
+}
+
+{
+    mesh Th = square(10, 10);
+    int[int] ssd(Th.nt);
+    //build the pseudo region numbering
+    for(int i = 0; i < ssd.n; i++){
+        int iq = i/2; //because 2 triangles per quad
+        int ix = iq%10;
+        int iy = iq/10;
+        ssd[i] = 1 + (ix>=5) + (iy>=5)*2;
+    }
+    //build emtpy with all edges $e=T1 \cap T2$ and $ssd[T1] \neq ssd[T2]$
+    Th = emptymesh(Th, ssd);
+    //plot
+    plot(Th, wait=1);
+    savemesh(Th, "emptymesh.msh");
+}
