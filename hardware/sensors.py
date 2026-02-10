@@ -1,10 +1,23 @@
-import machine
 import binascii
-import onewire
+
 import ds18x20
+import machine
+import onewire
 
 # Sensor Mapping
-sensor_mapping = {"28b87f230d000052": "A Side", "28f475b80e000076": "B Side"}
+sensor_mapping = {
+    "28f475b80e000076": "board",
+    "28feb3230d000096": "b1-1",
+    "28b046240d000002": "b1-2",
+    "281c40240d0000bf": "b1-3",
+    "28d2b8230d00002d": "b2-1",
+    "282c19240d000034": "b2-2",
+    "280b0b240d0000f8": "b2-3",
+    "285dcb230d0000c0": "b3-1",
+    "284e0a240d0000ab": "b3-2",
+    "287e30230d0000f9": "b3-3",
+    "285c63230d0000fa": "ambient",
+}
 
 # Init Sensors
 gp_pin = machine.Pin(26)
@@ -25,6 +38,7 @@ def getSensorName(device):
     if id in sensor_mapping:
         return sensor_mapping[id]
     else:
+        print("Sensor Not Mapped", id)
         return id
 
 
