@@ -1,0 +1,216 @@
+//verbosity=3;
+int NAdapt = 15;
+real SectionLen = 30.;
+
+// Cedar Rainscreen Cladding
+real CLThermalConductivity = 0.15; // 0.09 -- 0.2 W/mK
+real CLwidth = 1.;
+real CLheight = SectionLen;
+real CLx0 = 0.;
+real CLy0 = 0.;
+real CLx1 = CLx0 + CLwidth;
+real CLy1 = CLheight;
+cout << "Cedar rainscreen cladding:"
+                        << " x0: " << CLx0
+                        << ", y0: " << CLy0
+                        << ", x1: " << CLx1
+                        << ", y1: " << CLy1 << endl;
+// Furring Strips 1x3;
+real FSThermalConductivity = 0.15; // 0.09 -- 0.2 W/mK
+real FSwidth = 1.;
+real FShight = 3.;
+real FSx0 = CLx1;
+real FSy0 = SectionLen / 2. - FShight / 2.;
+real FSx1 = FSx0 + FSwidth;
+real FSy1 = SectionLen / 2. + FShight / 2.;
+cout << "Furring strips:"
+                        << " x0: " << FSx0
+                        << ", y0: " << FSy0
+                        << ", x1: " << FSx1
+                        << ", y1: " << FSy1 << endl;
+// Vapor-permeance-variable air and vapor membrane
+real VAPThermalConductivity = 0.3; // 0.01 -- 0.03 W/mK
+real VAPwidth = .1;
+real VAPheight = SectionLen;
+real VAPx0 = FSx1;
+real VAPy0 = 0.;
+real VAPx1 = VAPx0 + VAPwidth;
+real VAPy1 = VAPheight;
+cout << "Vapor-permeance-variable air and vapor membrane:"
+                        << " x0: " << VAPx0
+                        << ", y0: " << VAPy0
+                        << ", x1: " << VAPx1
+                        << ", y1: " << VAPy1 << endl;
+// Continuous rigid EPS foam insulating board
+real EPSThermalConductivity = 0.35; // 0.030 -- 0.040 W/mK
+real EPSwidth = 4.;
+real EPSheight = SectionLen;
+real EPSx0 = VAPx1;
+real EPSy0 = 0.;
+real EPSx1 = EPSx0 + EPSwidth;
+real EPSy1 = EPSheight;
+cout << "Continuous rigid EPS foam insulating board:"
+                        << " x0: " << EPSx0
+                        << ", y0: " << EPSy0
+                        << ", x1: " << EPSx1
+                        << ", y1: " << EPSy1 << endl;
+// Plywood Sheathing panel
+real PLYThermalConductivity = 0.11; // 0.10 -- 0.13 W/mK
+real PLYwidth = 0.5;
+real PLYheight = SectionLen;
+real PLYx0 = EPSx1;
+real PLYy0 = 0.;
+real PLYx1 = PLYx0 + PLYwidth;
+real PLYy1 = PLYheight;
+cout << "Plywood sheathing panel:"
+                        << " x0: " << PLYx0
+                        << ", y0: " << PLYy0
+                        << ", x1: " << PLYx1
+                        << ", y1: " << PLYy1 << endl;
+// Wood studs 2x6
+real WOODSThermalConductivity = 50.15; // 0.09 -- 0.2 W/mK
+real WOODSwidth = 6.;
+real WOODSheight = 2.;
+real WOODSx0 = PLYx1;
+real WOODSy0 = SectionLen / 2. - WOODSheight / 2.;
+real WOODSx1 = WOODSx0 + WOODSwidth;
+real WOODSy1 = SectionLen / 2. + WOODSheight / 2.;
+cout << "Wood studs:"
+                        << " x0: " << WOODSx0
+                        << ", y0: " << WOODSy0
+                        << ", x1: " << WOODSx1
+                        << ", y1: " << WOODSy1 << endl;
+// Formaldehyde-free Mineral Wool sound attenuation fire batt insulation
+real MWOOLThermalConductivity = 0.4; // 0.030 -- 0.046 W/mK
+real MWOOLwidth = 6.;
+real MWOOLheight = SectionLen / 2. - WOODSheight / 2.; // FIXME: not used, need proper source
+real DnMWOOLx0 = WOODSx0;
+real DnMWOOLy0 = 0.;
+real DnMWOOLx1 = DnMWOOLx0 + MWOOLwidth;
+real DnMWOOLy1 = SectionLen / 2 - WOODSheight / 2.;
+real UpMWOOLx0 = WOODSx0;
+real UpMWOOLy0 = SectionLen / 2 + WOODSheight / 2.;
+real UpMWOOLx1 = UpMWOOLx0 + MWOOLwidth;
+real UpMWOOLy1 = SectionLen;
+// Gypsum wall board, painted, on resilient channels
+real GYPThermalConductivity = 0.15; // 0.19 -- 0.20 W/mK
+real GYPwidth = 0.5;
+real GYPheight = SectionLen;
+real GYPx0 = WOODSx1;
+real GYPy0 = 0.;
+real GYPx1 = GYPx0 + GYPwidth;
+real GYPy1 = GYPheight;
+cout << "Gypsum wall board, painted, on resilient channels:"
+                        << " x0: " << GYPx0
+                        << ", y0: " << GYPy0
+                        << ", x1: " << GYPx1
+                        << ", y1: " << GYPy1 << endl;
+cout << endl;
+
+// Mesh
+int[int] labs1 = [11,12,13,14];
+mesh Th1 = square(3, 60, label=labs1, [CLx0+(CLx1-CLx0)*x, CLy0+(CLy1-CLy0)*y]);
+int[int] labs2 = [21,22,23,24];
+mesh Th2 = square(2, 6, label=labs2, [FSx0+(FSx1-FSx0)*x, FSy0+(FSy1-FSy0)*y]);
+int[int] labs3 = [31,32,33,34];
+mesh Th3 = square(1, 60, label=labs3, [VAPx0+(VAPx1-VAPx0)*x, VAPy0+(VAPy1-VAPy0)*y]);
+int[int] labs4 = [41,42,43,44];
+mesh Th4 = square(10, 60, label=labs4, [EPSx0+(EPSx1-EPSx0)*x, EPSy0+(EPSy1-EPSy0)*y]);
+int[int] labs5 = [51,52,53,54];
+mesh Th5 = square(2, 60, label=labs5, [PLYx0+(PLYx1-PLYx0)*x, PLYy0+(PLYy1-PLYy0)*y]);
+int[int] labs6up = [611,612,613,614];
+mesh Th6up = square(10, 28, label=labs6up, [UpMWOOLx0+(UpMWOOLx1-UpMWOOLx0)*x, UpMWOOLy0+(UpMWOOLy1-UpMWOOLy0)*y]);
+int[int] labs6dn = [621,622,623,624];
+mesh Th6dn = square(10, 28, label=labs6dn, [DnMWOOLx0+(DnMWOOLx1-DnMWOOLx0)*x, DnMWOOLy0+(DnMWOOLy1-DnMWOOLy0)*y]);
+int[int] labs7 = [71,72,73,74];
+mesh Th7 = square(10, 4, label=labs7, [WOODSx0+(WOODSx1-WOODSx0)*x, WOODSy0+(WOODSy1-WOODSy0)*y]);
+int[int] labs8 = [81,82,83,84];
+mesh Th8 = square(3, 60, label=labs8, [GYPx0+(GYPx1-GYPx0)*x, GYPy0+(GYPy1-GYPy0)*y]);
+
+mesh Th = Th1 + Th2 + Th3 + Th4 + Th5 + Th6up + Th6dn + Th7 + Th8; //'gluing together' meshes
+//plot(Th, wait=true);
+//Th = adaptmesh(Th, 1./30., hmin=1000000000);
+//plot(Th, wait=true);
+
+fespace Vh(Th, P1);
+Vh u, v;
+// 1. Find minimum conductivity of all materials used
+// 2. Set it to 1 and express other conductivities as multiples of the minimum
+real minConductivity1 = min(CLThermalConductivity, FSThermalConductivity, VAPThermalConductivity, EPSThermalConductivity);
+real minConductivity2 = min(PLYThermalConductivity, MWOOLThermalConductivity, WOODSThermalConductivity, GYPThermalConductivity);
+real minConductivity = min(minConductivity1, minConductivity2);
+real scaleFactor = 1. / minConductivity;
+real scaledCLThermalConductivity = CLThermalConductivity * scaleFactor;
+real scaledFSThermalConductivity = FSThermalConductivity * scaleFactor;
+real scaledVAPThermalConductivity = VAPThermalConductivity * scaleFactor;
+real scaledEPSThermalConductivity = EPSThermalConductivity * scaleFactor;
+real scaledPLYThermalConductivity = PLYThermalConductivity * scaleFactor;
+real scaledMWOOLThermalConductivity = MWOOLThermalConductivity * scaleFactor;
+real scaledWOODSThermalConductivity = WOODSThermalConductivity * scaleFactor;
+real scaledGYPThermalConductivity = GYPThermalConductivity * scaleFactor;
+
+cout << "CLThermalConductivity: " << CLThermalConductivity << endl;
+cout << "FSThermalConductivity: " << FSThermalConductivity << endl;
+cout << "VAPThermalConductivity: " << VAPThermalConductivity << endl;
+cout << "EPSThermalConductivity: " << EPSThermalConductivity << endl;
+cout << "PLYThermalConductivity: " << PLYThermalConductivity << endl;
+cout << "MWOOLThermalConductivity: " << MWOOLThermalConductivity << endl;
+cout << "WOODSThermalConductivity: " << WOODSThermalConductivity << endl;
+cout << "GYPThermalConductivity: " << GYPThermalConductivity << endl;
+
+cout << "Minimum Conductivity: " << minConductivity << endl;
+cout << "Scale Factor: " << scaleFactor << endl;
+cout << "Scaled CLThermalConductivity: " << scaledCLThermalConductivity << endl;
+cout << "Scaled FSThermalConductivity: " << scaledFSThermalConductivity << endl;
+cout << "Scaled VAPThermalConductivity: " << scaledVAPThermalConductivity << endl;
+cout << "Scaled EPSThermalConductivity: " << scaledEPSThermalConductivity << endl;
+cout << "Scaled PLYThermalConductivity: " << scaledPLYThermalConductivity << endl;
+cout << "Scaled MWOOLThermalConductivity: " << scaledMWOOLThermalConductivity << endl;
+cout << "Scaled WOODSThermalConductivity: " << scaledWOODSThermalConductivity << endl;
+cout << "Scaled GYPThermalConductivity: " << scaledGYPThermalConductivity << endl;
+
+Vh kappa = 1.
+            + scaledCLThermalConductivity    * (x > CLx0)      * (x < CLx1)      * (y > CLy0)      * (y < CLy1)
+            + scaledFSThermalConductivity    * (x > FSx0)      * (x < FSx1)      * (y > FSy0)      * (y < FSy1)
+            + scaledVAPThermalConductivity   * (x > VAPx0)     * (x < VAPx1)     * (y > VAPy0)     * (y < VAPy1)
+            + scaledEPSThermalConductivity   * (x > EPSx0)     * (x < EPSx1)     * (y > EPSy0)     * (y < EPSy1)
+            + scaledPLYThermalConductivity   * (x > PLYx0)     * (x < PLYx1)     * (y > PLYy0)     * (y < PLYy1)
+            + scaledMWOOLThermalConductivity * (x > UpMWOOLx0) * (x < UpMWOOLx1) * (y > UpMWOOLy0) * (y < UpMWOOLy1)
+            + scaledWOODSThermalConductivity * (x > WOODSx0)   * (x < WOODSx1)   * (y > WOODSy0)   * (y < WOODSy1)
+            + scaledMWOOLThermalConductivity * (x > DnMWOOLx0) * (x < DnMWOOLx1) * (y > DnMWOOLy0) * (y < DnMWOOLy1)
+            + scaledGYPThermalConductivity   * (x > GYPx0)     * (x < GYPx1)     * (y > GYPy0)     * (y < GYPy1)
+            ;
+
+macro Grad(u) [dx(u),dy(u)] // EOM
+
+problem PerfectWall(u, v, solver=CG, eps=-1.e-6)
+    = int2d(Th)(
+        kappa * (Grad(u)' * Grad(v))
+    )
+    -int2d(Th)(
+        v
+    )
+    + on(14, u=50)
+    + on(13, u=60)
+    + on(11, u=60)
+    + on(21, u=60)
+    + on(23, u=60)
+    + on(34, u=60)
+    + on(82, u=20)
+;
+
+// Mesh adaptation iterations
+real error = 0.9;
+real coef = 0.1^(1./5.);
+for (int i = 0; i < NAdapt; i++) {
+    // Solve
+    PerfectWall;
+
+    // Plot
+    plot(Th, cmm=i, wait=true);
+    plot(u, cmm=i, fill=true, value=true, wait=true);
+
+    // Adaptmesh
+    Th = adaptmesh(Th, u, inquire=1, err=error);
+    error = error * coef;
+}

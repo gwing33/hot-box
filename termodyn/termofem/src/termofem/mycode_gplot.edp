@@ -1,0 +1,30 @@
+mesh Th = square(5,5);
+fespace Vh(Th, P1);
+
+// Plot scalar and vectorial FE function
+Vh uh=x*x+y*y, vh=-y^2+x^2;
+plot(Th, uh, [uh, vh], value=true, wait=true);
+
+// Zoom on box defined by the two corner points [0.1,0.2] and [0.5,0.6]
+plot(uh, [uh, vh], bb=[[0.1, 0.2], [0.5, 0.6]],
+    wait=true, grey=true, fill=true, value=true);
+
+// Compute a cut
+int n = 10;
+real[int] xx(10), yy(10);
+for (int i = 0; i < n; i++){
+    x = i/real(n);
+    y = i/real(n);
+    xx[i] = i;
+    yy[i] = uh; // Value of uh at point (i/10., i/10.)
+}
+plot([xx, yy], wait=true);
+
+{ // File for gnuplot
+    ofstream gnu("plot.gp");
+    for (int i = 0; i < n; i++)
+        gnu << xx[i] << " " << yy[i] << endl;
+}
+
+// Calls the gnuplot command, waits 5 seconds and generates a postscript plot (UNIX ONLY)
+exec("echo 'plot \"plot.gp\" w l \n pause 5 \n set term postscript \n set output \"gnuplot.eps\" \n replot \n quit' | gnuplot");
