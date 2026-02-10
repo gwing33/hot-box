@@ -74,8 +74,8 @@ for device in getSensors():
 if registeredSensors:
     print("All sensors registered")
 else:
-    print("Failed to register all sensors")
-    exit()
+    print("API Comms Down")
+
 
 while True:
     convertTemp()
@@ -93,18 +93,19 @@ while True:
         # Write to CSV file
         write_to_csv(timestamp, device_name, id, name, c_raw)
 
-        resp = send_api_request(
-            f"/api/box/{HOT_BOX_ID}/measurements/",
-            data={
-                "sensor_id": id,
-                "timestamp": timestamp,
-                "temperature": c_raw,
-            },
-            method="POST",
-        )
-        if resp != None and (resp["status"] == 200 | resp["status"] == 201):
-            print(f"Measured {name} ({id}): {c_raw}")
-        else:
-            print("Failed to record measurement", id, name, c_raw)
+        if registeredSensors:
+            resp = send_api_request(
+                f"/api/box/{HOT_BOX_ID}/measurements/",
+                data={
+                    "sensor_id": id,
+                    "timestamp": timestamp,
+                    "temperature": c_raw,
+                },
+                method="POST",
+            )
+            if resp != None and (resp["status"] == 200 | resp["status"] == 201):
+                print(f"Measured {name} ({id}): {c_raw}")
+            else:
+                print("Failed to record measurement", id, name, c_raw)
 
     time.sleep(10)
