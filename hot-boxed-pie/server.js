@@ -3,6 +3,7 @@ import { initializeDatabase } from "./db.js";
 import { fileURLToPath } from "url";
 import path from "path";
 import mqtt from "mqtt";
+import "dotenv/config";
 // Import routes
 import boxesRouter from "./routes/boxRoutes.js";
 import sensorsRouter from "./routes/sensorRoutes.js";
@@ -13,20 +14,30 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const port = 3000;
-const mqttBroker = "mqtt://localhost:1883"; // Change this to your MQTT broker URL
+const port = process.env.PORT || 3000;
+
+// MQTT Configuration
+const mqttConfig = {
+  url: process.env.MQTT_BROKER_URL,
+  clientId: process.env.MQTT_CLIENT_ID,
+  username: process.env.MQTT_USERNAME,
+  password: process.env.MQTT_PASSWORD,
+  clean: true,
+  connectTimeout: 4000,
+  reconnectPeriod: 1000,
+};
 
 // Initialize MQTT client
-const mqttClient = mqtt.connect(mqttBroker);
+const mqttClient = mqtt.connect(mqttConfig.url, mqttConfig);
 
 // MQTT connection handling
 mqttClient.on("connect", () => {
   console.log("Connected to MQTT broker");
 
   // Subscribe to relevant topics
-  mqttClient.subscribe("hotbox/+/measurement", (err) => {
+  mqttClient.subscribe(process.env.MQTT_MEASUREMENT_TOPIC, (err) => {
     if (!err) {
-      console.log("Subscribed to measurment topics");
+      console.log("Subscribed to measurement topics");
     }
   });
 });
@@ -56,6 +67,7 @@ mqttClient.on("message", async (topic, message) => {
     await handleMeasurementMsg(boxId, type, payload);
   } catch (error) {
     console.error("Error processing MQTT message:", error);
+    console.error("Topic:", topic);
     console.error("Message content:", message.toString());
   }
 });
@@ -63,6 +75,16 @@ mqttClient.on("message", async (topic, message) => {
 // Handle MQTT errors
 mqttClient.on("error", (error) => {
   console.error("MQTT Error:", error);
+});
+
+// Handle MQTT connection close
+mqttClient.on("close", () => {
+  console.log("MQTT connection closed");
+});
+
+// Handle MQTT reconnect
+mqttClient.on("reconnect", () => {
+  console.log("MQTT client reconnecting");
 });
 
 // Middleware

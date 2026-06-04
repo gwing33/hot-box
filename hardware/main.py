@@ -1,10 +1,11 @@
 import os
 import time
-from datetime import initTime, iso_timestamp
+from datetime import iso_timestamp
 from secrets import HOT_BOX_ID
 
 import machine
 from api import send_api_request
+from log import log
 from sensors import (
     convertTemp,
     getDeviceName,
@@ -13,99 +14,106 @@ from sensors import (
     getSensors,
     readTemp,
 )
-from wifi import connectWifi
 
 rtc = machine.RTC()
 
-# CSV file setup
 CSV_FILENAME = "temperature_data.csv"
+SLEEP_MS = 10_000
+
+# GPIO24 = VBUS sense on Pico W/2W: HIGH when USB is connected.
+# Default to True (USB/safe mode). Only switch to battery mode after
+# two stable LOW readings — guards against false reads right after reset.
+on_usb = True
+try:
+    time.sleep_ms(200)  # let VBUS settle after boot
+    if machine.Pin(24, machine.Pin.IN).value() == 0:
+        time.sleep_ms(50)
+        if machine.Pin(24, machine.Pin.IN).value() == 0:
+            on_usb = False
+except Exception:
+    pass  # keep on_usb = True (safe default)
+
+# On USB: pause so Thonny/REPL has time to connect and interrupt with Ctrl+C
+if on_usb:
+    time.sleep(3)
 
 
 def init_csv_file():
-    """Initialize CSV file with headers if it doesn't exist"""
     try:
-        # Check if file exists
         if CSV_FILENAME not in os.listdir():
             with open(CSV_FILENAME, "w") as f:
                 f.write("timestamp,device_name,sensor_id,sensor_name,temperature_c\n")
-            print(f"Created new CSV file: {CSV_FILENAME}")
-        else:
-            print(f"Using existing CSV file: {CSV_FILENAME}")
     except Exception as e:
-        print(f"Error initializing CSV file: {e}")
+        log(f"CSV init error: {e}", rtc)
 
 
 def write_to_csv(timestamp, device_name, sensor_id, sensor_name, temperature):
-    """Append temperature data to CSV file"""
     try:
         with open(CSV_FILENAME, "a") as f:
             f.write(
                 f"{timestamp},{device_name},{sensor_id},{sensor_name},{temperature}\n"
             )
     except Exception as e:
-        print(f"Error writing to CSV: {e}")
+        log(f"CSV write error: {e}", rtc)
 
 
-# Connect to WiFi before starting
-connectWifi()
+def read_battery():
+    try:
+        # WL_GPIO2 must be driven high to connect VSYS/3 to ADC29 on Pico W/2W
+        wl_pin = machine.Pin("WL_GPIO2", machine.Pin.OUT, value=1)
+        v = machine.ADC(29).read_u16() * 3 * 3.3 / 65535
+        wl_pin.init(machine.Pin.IN)
+        return v
+    except Exception as e:
+        log(f"Battery read error: {e}", rtc)
+        return -1
 
-# Set Proper Time
-initTime(rtc)
 
-# Initialize CSV file
+def measure():
+    """One round of sensor reads, CSV writes, and battery logging."""
+    try:
+        convertTemp()
+        time.sleep_ms(750)
+
+        now = rtc.datetime()
+        for device in getSensors():
+            id = getSensorId(device)
+            name = getSensorName(device)
+            device_name = getDeviceName(device)
+            c_raw = readTemp(device)
+            timestamp = iso_timestamp(now)
+            log(f"{device_name} {id} {name} {c_raw}", rtc)
+            write_to_csv(timestamp, device_name, id, name, c_raw)
+
+    except Exception as e:
+        log(f"Sensor error: {type(e).__name__}: {e}", rtc)
+
+    log(f"Battery: {read_battery():.2f}V", rtc)
+
+
+# --- Boot message ---
+try:
+    cause = machine.reset_cause()
+    if cause == machine.DEEPSLEEP_RESET:
+        log("Wake from deepsleep", rtc)
+    else:
+        log(f"--- Boot --- ({'USB' if on_usb else 'battery'}, cause={cause})", rtc)
+except Exception:
+    log(f"--- Boot --- ({'USB' if on_usb else 'battery'})", rtc)
+
 init_csv_file()
 
-# Register Sensors
-registeredSensors = True
-for device in getSensors():
-    id = getSensorId(device)
-    name = getSensorName(device)
-    print("Registering Sensor", id, name)
-    resp = send_api_request(
-        f"/api/box/{HOT_BOX_ID}/sensors/",
-        data={"id": id, "name": name, "type": "ds18b20"},
-        method="POST",
-    )
-    if resp != None and (resp["status"] == 200 | resp["status"] == 201):
-        print("Sensor registered successfully", id, name)
-    else:
-        registeredSensors = False
-
-if registeredSensors:
-    print("All sensors registered")
+if on_usb:
+    # USB / development mode: stay in a loop so REPL remains accessible
+    while True:
+        log("Loop start", rtc)
+        measure()
+        log(f"Sleeping {SLEEP_MS // 1000}s (USB mode)", rtc)
+        time.sleep(SLEEP_MS // 1000)
 else:
-    print("API Comms Down")
-
-
-while True:
-    convertTemp()
-    time.sleep_ms(750)
-
-    now = rtc.datetime()
-    for device in getSensors():
-        id = getSensorId(device)
-        name = getSensorName(device)
-        device_name = getDeviceName(device)
-        c_raw = readTemp(device)
-        timestamp = iso_timestamp(now)
-        print(device_name, id, name, c_raw)
-
-        # Write to CSV file
-        write_to_csv(timestamp, device_name, id, name, c_raw)
-
-        if registeredSensors:
-            resp = send_api_request(
-                f"/api/box/{HOT_BOX_ID}/measurements/",
-                data={
-                    "sensor_id": id,
-                    "timestamp": timestamp,
-                    "temperature": c_raw,
-                },
-                method="POST",
-            )
-            if resp != None and (resp["status"] == 200 | resp["status"] == 201):
-                print(f"Measured {name} ({id}): {c_raw}")
-            else:
-                print("Failed to record measurement", id, name, c_raw)
-
-    time.sleep(10)
+    # Battery mode: single pass then deep sleep.
+    # The RP2350 and CYW43439 are properly powered down during sleep.
+    # On wake, main.py restarts from the top.
+    measure()
+    log(f"Deep sleeping {SLEEP_MS // 1000}s", rtc)
+    machine.deepsleep(SLEEP_MS)

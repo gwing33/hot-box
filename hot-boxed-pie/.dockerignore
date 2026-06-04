@@ -1,0 +1,41 @@
+# Version control
+.git
+.gitignore
+
+# Dependencies
+node_modules
+npm-debug.log
+
+# Environment variables
+.env
+.env.*
+
+# Development files
+*.log
+logs/
+*.sqlite
+databases/
+nodemon.json
+ecosystem.config.cjs
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Documentation
+README.md
+docs/
+
+# Testing
+test/
+coverage/
+
+# Build output
+dist/
+build/
+
+# System files
+.DS_Store
+Thumbs.db

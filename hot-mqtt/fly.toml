@@ -1,0 +1,27 @@
+# fly.toml app configuration file generated for hot-mqtt on 2025-10-19T21:52:31-07:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'hot-mqtt'
+primary_region = 'ord'
+
+[[services]]
+  internal_port = 1883
+  protocol = "tcp"
+
+  [services.concurrency]
+    hard_limit = 25
+    soft_limit = 20
+
+  [[services.ports]]
+    handlers = [ ]
+    port = "10000"
+
+  [[services.tcp_checks]]
+    interval = 10000
+    timeout = 2000
+
+[[mounts]]
+source="mosquitto_data"
+destination="/mosquitto/data"

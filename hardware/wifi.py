@@ -1,11 +1,12 @@
-import network
 import time
+
+import network
 
 
 # Connect to WiFi
 def connectWifi():
     try:
-        from secrets import WIFI_SSID, WIFI_PASSWORD
+        from secrets import WIFI_PASSWORD, WIFI_SSID
     except ImportError:
         print("Warning: secrets.py not found, skipping WiFi connection")
         return False
@@ -32,3 +33,23 @@ def connectWifi():
     else:
         print("Failed to connect to WiFi")
         return False
+
+
+def disconnectWifi():
+    # Disable WiFi — not needed until API calls are re-enabled
+    wlan = network.WLAN(network.STA_IF)
+    wlan.disconnect()
+    wlan.active(False)
+
+
+def initChip():
+    """Initialize the CYW43439 firmware and immediately shut it down.
+    Must be called even when WiFi networking is not needed — leaving the
+    chip uninitialized causes it to reset the RP2350 after a few seconds.
+    """
+    try:
+        wlan = network.WLAN(network.STA_IF)
+        wlan.active(True)
+        wlan.active(False)
+    except Exception as e:
+        print(f"WiFi chip init failed: {e}")
