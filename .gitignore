@@ -8,4 +8,22 @@ logs/
 secrets.py
 
 termodyn/rs/debug
-termodyn/rs/terget
+termodyn/rs/target
+termodyn/output/
+
+# Python bytecode / tool caches
+__pycache__/
+*.py[cod]
+.ropeproject
+.venv/
+
+# Device runtime state — regenerated on-device from the portal, never hand-edited.
+# Only hardware/config.json.example (the template) is committed.
+hardware/config.json
+
+# Local env files
+.env
+.env.*
+
+# Raw test recordings (photos/video/csv exports) — not source, too large to commit
+data/

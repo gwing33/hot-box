@@ -1,0 +1,11 @@
+{
+    "wifi_ssid": "my-wifi-network",
+    "wifi_password": "my-wifi-password",
+    "api_token": "your-nopal-sync-token",
+    "project": null,
+    "vault_analysis_folder_id": null,
+    "vault_run_name": null,
+    "indefinite": false,
+    "duration_hours": 24,
+    "wakes_remaining": 288
+}

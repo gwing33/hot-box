@@ -1,34 +1,48 @@
-import network
 import time
 
+import network
 
-# Connect to WiFi
-def connectWifi():
-    try:
-        from secrets import WIFI_SSID, WIFI_PASSWORD
-    except ImportError:
-        print("Warning: secrets.py not found, skipping WiFi connection")
-        return False
+
+def connectWifi(ssid=None, password=None):
+    """
+    Connect to WiFi. Credentials can be passed directly (from config.json)
+    or fall back to secrets.py if not provided.
+    """
+    if ssid is None:
+        try:
+            from secrets import WIFI_PASSWORD, WIFI_SSID
+
+            ssid, password = WIFI_SSID, WIFI_PASSWORD
+        except ImportError:
+            print("WiFi: no credentials provided and secrets.py not found")
+            return False
 
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
 
-    if not wlan.isconnected():
-        print(f"Connecting to WiFi: {WIFI_SSID}")
-        wlan.connect(WIFI_SSID, WIFI_PASSWORD)
-
-        max_wait = 10
-        while max_wait > 0:
-            if wlan.isconnected():
-                break
-            max_wait -= 1
-            print("Waiting for connection...")
-            time.sleep(1)
-
     if wlan.isconnected():
-        status = wlan.ifconfig()
-        print(f"Connected! IP: {status[0]}")
+        print(f"WiFi: already connected")
         return True
-    else:
-        print("Failed to connect to WiFi")
-        return False
+
+    print(f"WiFi: connecting to {ssid}")
+    wlan.connect(ssid, password or "")
+
+    for _ in range(20):
+        if wlan.isconnected():
+            print(f"WiFi: connected, IP={wlan.ifconfig()[0]}")
+            return True
+        time.sleep(0.5)
+
+    print(f"WiFi: failed to connect to {ssid}")
+    return False
+
+
+def disconnectWifi():
+    """Disconnect and deactivate WiFi — call before deep sleep."""
+    try:
+        wlan = network.WLAN(network.STA_IF)
+        wlan.disconnect()
+        wlan.active(False)
+        print("WiFi: disconnected")
+    except Exception as e:
+        print(f"WiFi: disconnect error: {e}")

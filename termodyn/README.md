@@ -58,3 +58,58 @@ uv run my_script.py
 1. [Perfect Wall](https://www.patriquinarchitects.com/need-excellent-thermal-performance-try-these-wall-assemblies/)
 1. [Perfect Wall R40](https://www.patriquinarchitects.com/wp-content/uploads/2021/04/UPDATED-SLATE-SCHOOL_.jpg)
 1. [Larsen Truss Wall R47](https://www.patriquinarchitects.com/wp-content/uploads/2021/04/UPDATED-HIDDEN-BROOK_1.jpg)
+
+## Monitoring
+
+`hotbox_monitoring.py` is the start of the **monitoring** half of this
+project. It parses the raw sensor logs in `../data/Test */*.csv`, cleans up
+several known data-quality issues (RTC resets mid-file, a truncated row,
+un-synced placeholder timestamps), and produces per-test plots plus a tidy
+combined CSV.
+
+```
+uv run hotbox_monitoring.py
+```
+
+or, without `uv`:
+
+```
+python3 hotbox_monitoring.py
+```
+
+Outputs are written to `output/` (gitignored):
+
+- `combined_readings_long.csv` -- every reading, tidy long format, with a
+  stitched `elapsed_s`/`elapsed_h` column and an approximate anchored
+  `approx_timestamp` (see caveats in the script's module docstring).
+- `data_quality_report.txt` -- per-file row counts, dropped rows, detected
+  RTC resets, and how much of each docx-stated test window was actually
+  captured.
+- `test{N}_<device>_sensors.png` -- the 3x3 sensor grid + ambient for one
+  device/test.
+- `test{N}_interior_vs_exterior_ambient.png` -- ambient comparison for
+  tests with both an interior and exterior device.
+- `test{N}_delta_t.png` -- exterior-minus-interior delta per matched
+  sensor position, i.e. the thermal gradient across the wall assembly.
+- `test{N}_heat_flux.png` -- estimated conductive heat flux (W/m2) per
+  sensor position, derived from delta-T and an assumed whole-assembly
+  R-value for that wall type (see `R_TOTAL_SI` / `R_TOTAL_IMPERIAL` near
+  the top of the script for the assumptions and sources).
+- `all_tests_heat_flux_comparison.png` -- ambient-driven heat flux overlaid
+  across all tests that have both an interior and exterior device.
+- `heat_flux_estimates.csv` -- the heat flux numbers behind the plots above.
+- `test{N}_<device>_grid_aggregate.png` -- the 9-point, 6in-spaced sensor
+  grid on one wall face collapsed into a single area-representative series
+  (`grid_mean`), with a min-max band showing spatial spread.
+- `test{N}_thermal_inertia.png` -- exterior vs interior grid_mean, with a
+  fitted first-order RC time constant overlay and decrement
+  factor/time-lag/tau annotated (see write-up for the full derivation).
+  Low-confidence fits (pinned against a search bound, or explaining little
+  variance) are explicitly flagged in the annotation.
+- `all_tests_thermal_inertia_summary.png` -- decrement factor / time lag /
+  tau compared across tests (hatched bars = low-confidence).
+- `grid_aggregate.csv`, `thermal_inertia_summary.csv` -- the numbers
+  behind the plots above.
+
+See the docstring at the top of `hotbox_monitoring.py` for a full rundown
+of the data-quality issues found in the raw logs and how each is handled.
