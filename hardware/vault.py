@@ -20,7 +20,14 @@ readings, writing its own local CSV, or publishing over MQTT.
 try:
     from secrets import NOPAL_HOST
 except ImportError:
-    NOPAL_HOST = "https://nopal.build"
+    # "nopal.build" is the separate marketing/webapp Fly app -- it has NO
+    # /api/vault/* routes at all. The actual product app (with the vault
+    # API this module calls) is served from the "o." subdomain -- see
+    # fruits/fly.toml vs webapp/fly.toml. Pointing this at nopal.build by
+    # mistake fails every call here silently (caught + logged, never
+    # raised) so readings just never reach the Vault, with no obvious
+    # symptom besides the missing data.
+    NOPAL_HOST = "https://o.nopal.build"
 
 # The analysis's own name inside Syncs — fixed, since a single HotBox
 # project only ever needs one (any number of test RUNS live inside it).

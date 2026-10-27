@@ -9,6 +9,42 @@ if not _safe_pin.value():
     print("Safe mode: GP15 held low — dropping to REPL")
     raise SystemExit
 
+# ── Stay-awake flag: pause the test and idle here instead of deep sleeping ───
+# Deep sleep fully powers down USB for ~285 of every 300s, so catching the
+# device for debugging means racing its ~10-15s awake window every cycle.
+# Dropping a `stay_awake` marker file on the device (see tools/stay_awake.py)
+# makes it loop here instead — awake, USB up, freely interruptible via
+# mpremote/Thonny at any moment — until MAX_STAY_AWAKE_S elapses (checked
+# via this loop's own timer, no external action needed — a safety net so a
+# forgotten flag doesn't just silently drain the battery for days) or
+# something clears the flag. Note that clearing it from outside (tools/
+# stay_awake.py) always forces a reset to actually resume — connecting at
+# all necessarily interrupts (Ctrl-C's) this loop first, so it can't just
+# notice the file's gone and fall through gracefully on its own. The
+# paused test resumes exactly where it left off either way
+# (cfg/wakes_remaining untouched).
+#
+# (Deliberately an active loop, not `raise SystemExit` to idle at REPL like
+# safe mode above — that pattern reliably crash-loops on this firmware for
+# reasons we haven't root-caused; a running loop has always interrupted
+# cleanly in testing.)
+STAY_AWAKE_FILE = "stay_awake"
+MAX_STAY_AWAKE_S = 1800  # 30 min safety cap — don't silently drain the battery
+if STAY_AWAKE_FILE in os.listdir():
+    print(f"'{STAY_AWAKE_FILE}' present — staying awake for debugging (test paused)")
+    _waited = 0
+    while STAY_AWAKE_FILE in os.listdir() and _waited < MAX_STAY_AWAKE_S:
+        time.sleep(1)
+        _waited += 1
+    if _waited >= MAX_STAY_AWAKE_S:
+        print("Stay-awake timed out after 30 min — resuming normal operation")
+        try:
+            os.remove(STAY_AWAKE_FILE)
+        except Exception:
+            pass
+    else:
+        print("Stay-awake flag removed — resuming normal operation")
+
 from datetime import iso_timestamp
 
 from config import build as build_config
@@ -171,6 +207,32 @@ if cfg and not cfg.get("indefinite", True):
         )
         raise SystemExit
 
+# ── WiFi + time sync (before readings, so THIS wake's timestamps are real) ────
+# Cold boot already connected WiFi above (via the portal, or the "saved
+# config" retry). Deep sleep drops WiFi on every sleep, so reconnect fresh
+# here. Either way, sync real time over NTP now, on every wake — deep sleep
+# is a full reset, so the RTC always comes back at its 2021-01-01 default
+# and needs resyncing every time, not just once per test.
+
+wifi_connected = False
+if cfg:
+    if is_deepsleep_wake:
+        wifi_connected = connectWifi(cfg["wifi_ssid"], cfg["wifi_password"])
+    else:
+        import network
+
+        wifi_connected = network.WLAN(network.STA_IF).isconnected()
+
+    if wifi_connected:
+        try:
+            import ntptime
+
+            ntptime.settime()
+        except Exception as e:
+            log(f"NTP sync failed: {type(e).__name__}: {e}", rtc)
+    else:
+        log("WiFi unavailable — timestamps this cycle will be wrong", rtc)
+
 # ── Sensor read + CSV ─────────────────────────────────────────────────────────
 
 readings = []
@@ -193,18 +255,11 @@ try:
 except Exception as e:
     log(f"Sensor error: {type(e).__name__}: {e}", rtc)
 
-# ── WiFi + MQTT + Vault sync (deepsleep wakes reconnect here) ─────────────────
+# ── MQTT + Vault sync (WiFi already connected/synced above) ──────────────────
 
 if readings and cfg:
     try:
-        if is_deepsleep_wake:
-            # Deep sleep always drops WiFi — reconnect each wake
-            wifi_ok = connectWifi(cfg["wifi_ssid"], cfg["wifi_password"])
-        else:
-            # Cold boot — WiFi already connected from portal/setup above
-            wifi_ok = True
-
-        if wifi_ok:
+        if wifi_connected:
             publish_readings(readings)
 
             # Nopal Vault sync (sync-api "hot-box-data" analysis) — no-op

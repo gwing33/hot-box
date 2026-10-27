@@ -18,8 +18,9 @@ __pycache__/
 .venv/
 
 # Device runtime state — regenerated on-device from the portal, never hand-edited.
-# Only hardware/config.json.example (the template) is committed.
+# Only */config.json.example (the template) is committed.
 hardware/config.json
+box-hardware/config.json
 
 # Local env files
 .env

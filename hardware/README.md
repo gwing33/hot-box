@@ -50,7 +50,11 @@ topic, and Nopal Vault run this box produces from then on — see `getDeviceName
 
 On first boot (or whenever saved WiFi credentials stop working), the box starts its own
 AP named `HotBox-Setup`. Connect to it with your phone/laptop and a setup page opens
-automatically (or visit `http://192.168.4.1`). It asks for:
+automatically (or visit `http://192.168.4.1`). The page (and the "Connecting..." page
+after you submit it) shows a **Device** badge at the top — the device name inferred
+from whichever sensors are currently wired up (see `getBoxDeviceName()` in
+`sensors.py`), so you know which physical unit you're configuring, or that it shows
+`unmapped` if its sensors aren't in `sensor_devices` yet. It asks for:
 
 - **WiFi network / password** — what the box joins for the rest of the test.
 - **Nopal API Token** (optional) — a sync-scoped token (Profile page → Sync Tokens on

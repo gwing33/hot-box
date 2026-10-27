@@ -96,6 +96,26 @@ def getDeviceName(device):
         return "unknown"
 
 
+def getBoxDeviceName():
+    """Best-effort single device name for this physical box, inferred from
+    whichever sensors are currently wired up (see "Adding a new device" in
+    README.md). Used by the WiFi setup portal so you can tell which unit
+    you're configuring before it disappears back into deep sleep.
+
+    Returns "unmapped" if none of the connected sensors match a known
+    device, or a "/"-joined list if sensors from more than one device are
+    seen at once (shouldn't normally happen).
+    """
+    names = set()
+    for device in sensors:
+        name = getDeviceName(device)
+        if name != "unknown":
+            names.add(name)
+    if not names:
+        return "unmapped"
+    return "/".join(sorted(names))
+
+
 def getSensors():
     return sensors
 

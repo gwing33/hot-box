@@ -16,6 +16,8 @@ import time
 
 import network
 
+import sensors
+
 AP_SSID = "HotBox-Setup"
 AP_IP = "192.168.4.1"
 
@@ -53,12 +55,14 @@ input:focus,select:focus{border-color:#e55;background:#fff}
 #hrs{margin-top:16px}
 .btn{display:block;width:100%;margin-top:22px;padding:14px;background:#e55;color:#fff;border:none;border-radius:9px;font-size:1.05rem;font-weight:700;cursor:pointer;letter-spacing:.02em}
 .btn:hover{background:#c44}
+.dev{display:inline-block;margin-bottom:16px;padding:5px 11px;background:#eef4ff;border-radius:7px;color:#345;font-size:.85rem;font-weight:600}
 </style>
 </head>
 <body>
 <div class="wrap">
 <h1>&#127777;&#65039; HotBox Setup</h1>
 <p class="sub">Configure WiFi and test duration</p>
+<div class="dev">Device: %%DEVICE%%</div>
 %%ERR%%
 <div class="card">
 <form method="POST" action="/configure">
@@ -96,6 +100,7 @@ _WAIT = """\
 </head>
 <body>
 <h2>&#9203; Connecting&#8230;</h2>
+<p style="color:#345;font-size:.9rem">Device: <strong>%%DEVICE%%</strong></p>
 <p style="margin-top:12px">Connecting to <strong>%%SSID%%</strong>.</p>
 <p style="color:#666;font-size:.9rem;margin-top:10px">&#127777;&#65039; %%NOPAL%%</p>
 <p style="color:#888;font-size:.9rem;margin-top:16px">
@@ -109,9 +114,10 @@ reconnect to <b>HotBox-Setup</b> and try again.
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _render(error="", ssid="", project="", dtype="indefinite", hours=24):
+def _render(error="", ssid="", project="", dtype="indefinite", hours=24, device=""):
     err_html = f'<div class="err">{error}</div>' if error else ""
     page = _PAGE.replace("%%ERR%%", err_html)
+    page = page.replace("%%DEVICE%%", device)
     page = page.replace("%%SSID%%", ssid)
     page = page.replace("%%PROJECT%%", project)
     page = page.replace("%%INDEF%%", " selected" if dtype != "hours" else "")
@@ -121,12 +127,16 @@ def _render(error="", ssid="", project="", dtype="indefinite", hours=24):
     return page
 
 
-def _render_wait(ssid, api_token, project):
+def _render_wait(ssid, api_token, project, device=""):
     if api_token:
         nopal = f"Nopal sync: enabled &#8594; {project if project else 'Personal'}"
     else:
         nopal = "Nopal sync: disabled (no token entered)"
-    return _WAIT.replace("%%SSID%%", ssid).replace("%%NOPAL%%", nopal)
+    return (
+        _WAIT.replace("%%SSID%%", ssid)
+        .replace("%%NOPAL%%", nopal)
+        .replace("%%DEVICE%%", device)
+    )
 
 
 def _urldecode(s):
@@ -277,6 +287,9 @@ def run_portal(error=""):
 
     WiFi STA is connected (not yet disconnected) when this returns.
     """
+    device_name = sensors.getBoxDeviceName()
+    print(f"Portal: detected device '{device_name}'")
+
     ap = network.WLAN(network.AP_IF)
     ap.config(ssid=AP_SSID, security=0)
     ap.active(True)
@@ -344,7 +357,9 @@ def run_portal(error=""):
                                     conn,
                                     "200 OK",
                                     _render(
-                                        "WiFi network name cannot be empty.", **form
+                                        "WiFi network name cannot be empty.",
+                                        device=device_name,
+                                        **form,
                                     ),
                                 )
                                 conn.close()
@@ -352,7 +367,11 @@ def run_portal(error=""):
 
                             # Serve "connecting" page immediately
                             _http_send(
-                                conn, "200 OK", _render_wait(ssid, api_token, project)
+                                conn,
+                                "200 OK",
+                                _render_wait(
+                                    ssid, api_token, project, device=device_name
+                                ),
                             )
                             conn.close()
 
@@ -404,7 +423,11 @@ def run_portal(error=""):
                             poller.register(http_sock, select.POLLIN)
 
                         elif path in ("/", "/index.html"):
-                            _http_send(conn, "200 OK", _render(error, **form))
+                            _http_send(
+                                conn,
+                                "200 OK",
+                                _render(error, device=device_name, **form),
+                            )
                             conn.close()
                             error = ""
 
